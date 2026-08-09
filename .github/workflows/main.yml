@@ -1,0 +1,23 @@
+name: Descomprimir SimulTrans
+on:
+  workflow_dispatch:
+
+jobs:
+  unzip-simultrans:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+
+      - name: Descomprimir SimulTrans
+        run: |
+          unzip -o SimulTrans.zip
+          rm SimulTrans.zip
+
+      - name: Guardar cambios en GitHub
+        run: |
+          git config --global user.name "GitHub Action"
+          git config --global user.email "action@github.com"
+          git add .
+          git commit -m "Carpeta SimulTrans extraída correctamente" || exit 0
+          git push
