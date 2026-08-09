@@ -1,0 +1,8 @@
+<resources>
+    <color name="spanish_color">#C60B1E</color>
+    <color name="english_color">#00247D</color>
+    <color name="background">#FAFAFA</color>
+    <color name="bubble_es">#FDECEA</color>
+    <color name="bubble_en">#E8ECFB</color>
+    <color name="text_primary">#1A1A1A</color>
+</resources>
