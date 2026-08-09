@@ -1,0 +1,6 @@
+<resources>
+    <style name="Theme.SimulTrans" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/english_color</item>
+        <item name="android:windowBackground">@color/background</item>
+    </style>
+</resources>
