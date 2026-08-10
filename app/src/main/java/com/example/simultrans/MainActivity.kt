@@ -266,24 +266,7 @@ private fun addBubble(text: String, isSpanish: Boolean) {
     transcriptContainer.addView(bubble)
     scrollView.post { scrollView.fullScroll(View.FOCUS_DOWN) }
 }
-Solo he añadido la línea setTextColor(...), usando el text_primary (
-#1A1A1A) que ya tienes definido en colors.xml — así el contraste queda bien sobre los dos fondos claros.
 
-Resumen de los dos cambios que necesitas:
-
-En addBubble(): añadir setTextColor(...) como arriba.
-En AndroidManifest.xml, en la etiqueta <activity> de MainActivity, añadir android:configChanges="orientation|screenSize|screenLayout|keyboardHidden".
-¿Quieres que te pase también el AndroidManifest.xml completo con el cambio ya puesto, o solo necesitabas la línea a añadir?
-
-Me falta el addbubble
-
-No te preocupes, vamos a hacerlo fácil. En Android Studio:
-
-Abre tu archivo MainActivity.kt (el mismo que me pasaste).
-Busca la función addBubble — está casi al final del archivo, justo antes de onDestroy().
-Selecciona toda la función completa, desde la línea que empieza con private fun addBubble(...) hasta la llave de cierre } que la termina (justo antes de override fun onDestroy()).
-Bórrala y pega esto en su lugar:
-kotlin
 private fun addBubble(text: String, isSpanish: Boolean) {
     val bubble = TextView(this).apply {
         this.text = text
