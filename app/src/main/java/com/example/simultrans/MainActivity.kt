@@ -224,26 +224,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     
-Claude ha terminado la respuesta
 
-Diagnosed text color inheritance bug and dismissed disappearance complaint
-Diagnosed text color inheritance bug and dismissed disappearance complaint
-Con esto ya tengo el cuadro completo, y confirma las dos causas:
-
-1. Texto casi invisible — confirmado
-
-En tu layout no hay ningún textColor para los bubbles (no hay TextView definido ahí, se crean por código en addBubble()), y en addBubble() tampoco fijas setTextColor(...). Así que el texto hereda el color de texto por defecto del tema de tu Activity — que en el tema base de AppCompat suele salir gris muy claro o blanco — y se pone sobre fondos clarísimos (
-#FDECEA y 
-#E8ECFB). Ahí está el "apenas se ve" de la captura.
-
-2. "Desaparece muy rápido"
-
-No hay ningún timer, Handler.postDelayed, ni animación de fade en tu código ni en el layout — así que no es una desaparición programada. Con lo que hemos visto, creo que en realidad es el mismo problema que "gira la pantalla y desaparece": si giras el móvil sin darte cuenta (o el sensor detecta el giro un instante), la Activity se destruye y recrea, y como no guardas los mensajes, la conversación se vacía. Eso puede sentirse como que "desaparece muy rápido" aunque tú no la hayas girado a propósito. El fix del manifest que te di antes debería resolver esto también.
-
-El arreglo del texto, en tu addBubble():
-
-
-Recalled memory
 Recalled memory
 kotlin
 private fun addBubble(text: String, isSpanish: Boolean) {
@@ -287,9 +268,6 @@ private fun addBubble(text: String, isSpanish: Boolean) {
     transcriptContainer.addView(bubble)
     scrollView.post { scrollView.fullScroll(View.FOCUS_DOWN) }
 }
-        transcriptContainer.addView(bubble)
-        scrollView.post { scrollView.fullScroll(View.FOCUS_DOWN) }
-    }
 
     override fun onDestroy() {
         super.onDestroy()
