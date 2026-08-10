@@ -24,6 +24,31 @@
         android:layout_marginTop="8dp"
         android:text="@string/btn_pick_model" />
 
+    <!-- Selectores de los 2 idiomas de la conversación actual -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        android:paddingTop="8dp"
+        android:weightSum="2">
+
+        <Spinner
+            android:id="@+id/spinnerLangA"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginEnd="6dp" />
+
+        <Spinner
+            android:id="@+id/spinnerLangB"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="6dp" />
+    </LinearLayout>
+
     <ScrollView
         android:id="@+id/scrollView"
         android:layout_width="match_parent"
@@ -37,7 +62,6 @@
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:padding="12dp" />
-
     </ScrollView>
 
     <LinearLayout
@@ -48,27 +72,23 @@
         android:weightSum="2">
 
         <Button
-            android:id="@+id/btnSpanish"
+            android:id="@+id/btnLangA"
             android:layout_width="0dp"
             android:layout_height="72dp"
             android:layout_weight="1"
             android:layout_marginEnd="6dp"
-            android:backgroundTint="@color/spanish_color"
             android:textColor="#FFFFFF"
             android:enabled="false"
-            android:text="@string/btn_spanish" />
+            android:text="" />
 
         <Button
-            android:id="@+id/btnEnglish"
+            android:id="@+id/btnLangB"
             android:layout_width="0dp"
             android:layout_height="72dp"
             android:layout_weight="1"
             android:layout_marginStart="6dp"
-            android:backgroundTint="@color/english_color"
             android:textColor="#FFFFFF"
             android:enabled="false"
-            android:text="@string/btn_english" />
-
+            android:text="" />
     </LinearLayout>
-
 </LinearLayout>
