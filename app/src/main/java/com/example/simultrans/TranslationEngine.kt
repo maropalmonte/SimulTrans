@@ -54,7 +54,7 @@ class TranslationEngine(private val modelFile: File) {
                 )
 
                 engine.createConversation(conversationConfig).use { conversation ->
-                    conversation.sendMessage(text).text.trim()
+                    conversation.sendMessage(text).toString().trim()
                 }
             }
         }
