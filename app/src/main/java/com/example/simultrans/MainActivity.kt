@@ -223,51 +223,26 @@ class MainActivity : AppCompatActivity() {
         tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, null)
     }
 
-    
-
-Recalled memory
-kotlin
-private fun addBubble(text: String, isSpanish: Boolean) {
-    val bubble = TextView(this).apply {
-        this.text = text
-        setPadding(24, 16, 24, 16)
-        textSize = 16f
-        setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text_primary))
-        setBackgroundResource(
-            if (isSpanish) R.drawable.bubble_es else R.drawable.bubble_en
-        )
-        layoutParams = LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.WRAP_CONTENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT
-        ).apply {
-            gravity = if (isSpanish) Gravity.START else Gravity.END
-            setMargins(8, 8, 8, 8)
+    private fun addBubble(text: String, isSpanish: Boolean) {
+        val bubble = TextView(this).apply {
+            this.text = text
+            setPadding(24, 16, 24, 16)
+            textSize = 16f
+            setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text_primary))
+            setBackgroundResource(
+                if (isSpanish) R.drawable.bubble_es else R.drawable.bubble_en
+            )
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                gravity = if (isSpanish) Gravity.START else Gravity.END
+                setMargins(8, 8, 8, 8)
+            }
         }
+        transcriptContainer.addView(bubble)
+        scrollView.post { scrollView.fullScroll(View.FOCUS_DOWN) }
     }
-    transcriptContainer.addView(bubble)
-    scrollView.post { scrollView.fullScroll(View.FOCUS_DOWN) }
-}
-
-private fun addBubble(text: String, isSpanish: Boolean) {
-    val bubble = TextView(this).apply {
-        this.text = text
-        setPadding(24, 16, 24, 16)
-        textSize = 16f
-        setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text_primary))
-        setBackgroundResource(
-            if (isSpanish) R.drawable.bubble_es else R.drawable.bubble_en
-        )
-        layoutParams = LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.WRAP_CONTENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT
-        ).apply {
-            gravity = if (isSpanish) Gravity.START else Gravity.END
-            setMargins(8, 8, 8, 8)
-        }
-    }
-    transcriptContainer.addView(bubble)
-    scrollView.post { scrollView.fullScroll(View.FOCUS_DOWN) }
-}
 
     override fun onDestroy() {
         super.onDestroy()
