@@ -150,9 +150,10 @@ class MainActivity : AppCompatActivity() {
      */
     private fun setupLanguageSpinners() {
         val nombres = Idioma.values().map { it.displayName }
-        val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, nombres)
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        spinnerLangA.adapter = adapter
+        val adapter = ArrayAdapter(this, R.layout.spinner_item, nombres)
+        adapter.setDropDownViewResource(R.layout.spinner_item)
+        
+       spinnerLangA.adapter = adapter
         spinnerLangB.adapter = adapter
 
         spinnerLangA.setSelection(Idioma.ESPANOL.ordinal)
