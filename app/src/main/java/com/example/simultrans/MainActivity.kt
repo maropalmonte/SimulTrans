@@ -1,6 +1,9 @@
 package com.example.simultrans
 
 import android.Manifest
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
@@ -15,9 +18,11 @@ import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.LinearLayout
+import android.widget.ProgressBar
 import android.widget.ScrollView
 import android.widget.Spinner
 import android.widget.TextView
+import android.widget.Toast
 import android.net.Uri
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -27,6 +32,8 @@ import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
+import org.json.JSONObject
 import java.io.File
 import java.util.Locale
 
@@ -38,6 +45,10 @@ import java.util.Locale
  * actual con los desplegables; por defecto Español <-> Inglés. Cada botón
  * grande representa uno de los dos idiomas elegidos: se pulsa, se habla,
  * y se traduce automáticamente al otro idioma de la pareja.
+ *
+ * La conversación se guarda en SharedPreferences y se restaura al volver
+ * a abrir la app (o al girar la pantalla). Se puede borrar con el enlace
+ * "Borrar conversación". Tocar una burbuja copia su texto al portapapeles.
  *
  * El modelo NO se incluye en el APK (pesa varios GB). Se descarga con el
  * navegador del propio móvil desde Hugging Face y se selecciona dentro de
@@ -65,7 +76,10 @@ enum class Idioma(
     INGLES("Inglés", "en-US", Locale.US, "#00247D"),
     FRANCES("Francés", "fr-FR", Locale.FRANCE, "#0055A4"),
     ITALIANO("Italiano", "it-IT", Locale.ITALY, "#008C45"),
-    CHINO("Chino", "zh-CN", Locale.SIMPLIFIED_CHINESE, "#DE2910");
+    CHINO("Chino", "zh-CN", Locale.SIMPLIFIED_CHINESE, "#DE2910"),
+    TURCO("Turco", "tr-TR", Locale("tr", "TR"), "#E30A17"),
+    ARABE("Árabe", "ar-SA", Locale("ar", "SA"), "#006C35"),
+    ALEMAN("Alemán", "de-DE", Locale.GERMANY, "#FFCE00");
 
     override fun toString(): String = displayName
 }
@@ -73,6 +87,7 @@ enum class Idioma(
 class MainActivity : AppCompatActivity() {
 
     private lateinit var statusText: TextView
+    private lateinit var progressBar: ProgressBar
     private lateinit var transcriptContainer: LinearLayout
     private lateinit var scrollView: ScrollView
     private lateinit var spinnerLangA: Spinner
@@ -80,11 +95,13 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnLangA: Button
     private lateinit var btnLangB: Button
     private lateinit var btnPickModel: Button
+    private lateinit var btnClearHistory: TextView
 
     private lateinit var translationEngine: TranslationEngine
     private lateinit var speechRecognizer: SpeechRecognizer
     private lateinit var tts: TextToSpeech
     private lateinit var modelFile: File
+    private lateinit var prefs: SharedPreferences
 
     // Pareja de idiomas activa en la conversación. Por defecto Español/Inglés.
     private var langA: Idioma = Idioma.ESPANOL
@@ -112,6 +129,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         statusText = findViewById(R.id.statusText)
+        progressBar = findViewById(R.id.progressBar)
         transcriptContainer = findViewById(R.id.transcriptContainer)
         scrollView = findViewById(R.id.scrollView)
         spinnerLangA = findViewById(R.id.spinnerLangA)
@@ -119,10 +137,16 @@ class MainActivity : AppCompatActivity() {
         btnLangA = findViewById(R.id.btnLangA)
         btnLangB = findViewById(R.id.btnLangB)
         btnPickModel = findViewById(R.id.btnPickModel)
+        btnClearHistory = findViewById(R.id.btnClearHistory)
+
+        prefs = getSharedPreferences("simultrans_prefs", MODE_PRIVATE)
 
         ensureMicPermission()
         setupLanguageSpinners()
         updateLanguageButtons()
+        restoreHistory()
+
+        btnClearHistory.setOnClickListener { clearHistory() }
 
         tts = TextToSpeech(this) { }
 
@@ -152,8 +176,7 @@ class MainActivity : AppCompatActivity() {
         val nombres = Idioma.values().map { it.displayName }
         val adapter = ArrayAdapter(this, R.layout.spinner_item, nombres)
         adapter.setDropDownViewResource(R.layout.spinner_item)
-        
-       spinnerLangA.adapter = adapter
+        spinnerLangA.adapter = adapter
         spinnerLangB.adapter = adapter
 
         spinnerLangA.setSelection(Idioma.ESPANOL.ordinal)
@@ -293,6 +316,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun translateAndShow(spokenText: String, fromIdioma: Idioma, toIdioma: Idioma) {
         statusText.text = getString(R.string.translating)
+        progressBar.visibility = View.VISIBLE
         addBubble(spokenText, fromIdioma)
 
         lifecycleScope.launch {
@@ -308,18 +332,47 @@ class MainActivity : AppCompatActivity() {
                 addBubble("(Error al traducir: ${e.message})", toIdioma)
             } finally {
                 isBusy = false
+                progressBar.visibility = View.GONE
                 statusText.text = getString(R.string.status_ready)
             }
         }
     }
 
+    /**
+     * Habla el texto traducido en el idioma indicado. Se comprueba
+     * explícitamente si el motor de TTS tiene instalado el paquete de voz
+     * de ese idioma (típico que falte en italiano, turco, árabe o alemán
+     * en dispositivos que solo traen español e inglés de fábrica). Si
+     * falta, se avisa y se lleva al usuario a instalarlo, en vez de fallar
+     * en silencio.
+     */
     private fun speak(text: String, idioma: Idioma) {
-        tts.language = idioma.ttsLocale
+        val result = tts.setLanguage(idioma.ttsLocale)
+        val faltaPaquete = result == TextToSpeech.LANG_MISSING_DATA ||
+            result == TextToSpeech.LANG_NOT_SUPPORTED
+
+        if (faltaPaquete) {
+            statusText.text = "Falta la voz de ${idioma.displayName} en este móvil. Abriendo instalación..."
+            try {
+                val installIntent = android.content.Intent(TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA)
+                startActivity(installIntent)
+            } catch (e: Exception) {
+                statusText.text = "Instala la voz de ${idioma.displayName} desde Ajustes > Accesibilidad > Conversión de texto a voz."
+            }
+            return
+        }
+
         tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, null)
     }
 
-    /** Burbuja coloreada según el idioma hablado; alineada a la izquierda si es langA. */
-    private fun addBubble(text: String, idioma: Idioma) {
+    /**
+     * Crea la vista de una burbuja de conversación, coloreada según el
+     * idioma y alineada a la izquierda o derecha según alignLeft. Tocarla
+     * copia su texto al portapapeles. No la añade ni la guarda por sí
+     * misma — eso lo hacen addBubble() (mensaje nuevo) y restoreHistory()
+     * (mensajes ya guardados).
+     */
+    private fun createBubbleView(text: String, idioma: Idioma, alignLeft: Boolean): TextView {
         val density = resources.displayMetrics.density
         val baseColor = Color.parseColor(idioma.colorHex)
         val bubbleColor = ColorUtils.blendARGB(Color.WHITE, baseColor, 0.15f)
@@ -328,7 +381,7 @@ class MainActivity : AppCompatActivity() {
             cornerRadius = 16f * density
         }
 
-        val bubble = TextView(this).apply {
+        return TextView(this).apply {
             this.text = text
             setPadding((24 * density).toInt(), (16 * density).toInt(), (24 * density).toInt(), (16 * density).toInt())
             textSize = 16f
@@ -338,12 +391,63 @@ class MainActivity : AppCompatActivity() {
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             ).apply {
-                gravity = if (idioma == langA) Gravity.START else Gravity.END
+                gravity = if (alignLeft) Gravity.START else Gravity.END
                 setMargins((8 * density).toInt(), (8 * density).toInt(), (8 * density).toInt(), (8 * density).toInt())
             }
+            isClickable = true
+            isFocusable = true
+            setOnClickListener {
+                val clipboard = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
+                clipboard.setPrimaryClip(ClipData.newPlainText("Traducción", text))
+                Toast.makeText(this@MainActivity, "Copiado", Toast.LENGTH_SHORT).show()
+            }
         }
+    }
+
+    /** Añade una burbuja nueva a la conversación y la guarda en el historial. */
+    private fun addBubble(text: String, idioma: Idioma) {
+        val alignLeft = idioma == langA
+        val bubble = createBubbleView(text, idioma, alignLeft)
         transcriptContainer.addView(bubble)
         scrollView.post { scrollView.fullScroll(View.FOCUS_DOWN) }
+        saveHistoryEntry(text, idioma, alignLeft)
+    }
+
+    /** Añade una entrada al JSON guardado en SharedPreferences. */
+    private fun saveHistoryEntry(text: String, idioma: Idioma, alignLeft: Boolean) {
+        val existing = prefs.getString(KEY_HISTORY, null)
+        val arr = if (existing != null) JSONArray(existing) else JSONArray()
+        val obj = JSONObject()
+        obj.put("idioma", idioma.name)
+        obj.put("text", text)
+        obj.put("left", alignLeft)
+        arr.put(obj)
+        prefs.edit().putString(KEY_HISTORY, arr.toString()).apply()
+    }
+
+    /** Reconstruye las burbujas guardadas al abrir la app (o tras girar la pantalla). */
+    private fun restoreHistory() {
+        val json = prefs.getString(KEY_HISTORY, null) ?: return
+        try {
+            val arr = JSONArray(json)
+            for (i in 0 until arr.length()) {
+                val obj = arr.getJSONObject(i)
+                val idioma = Idioma.valueOf(obj.getString("idioma"))
+                val text = obj.getString("text")
+                val alignLeft = obj.getBoolean("left")
+                transcriptContainer.addView(createBubbleView(text, idioma, alignLeft))
+            }
+            scrollView.post { scrollView.fullScroll(View.FOCUS_DOWN) }
+        } catch (e: Exception) {
+            // Historial corrupto o de una versión anterior: se ignora y se empieza de cero.
+        }
+    }
+
+    /** Borra la conversación de la pantalla y del almacenamiento guardado. */
+    private fun clearHistory() {
+        transcriptContainer.removeAllViews()
+        prefs.edit().remove(KEY_HISTORY).apply()
+        Toast.makeText(this, "Conversación borrada", Toast.LENGTH_SHORT).show()
     }
 
     override fun onDestroy() {
@@ -351,5 +455,9 @@ class MainActivity : AppCompatActivity() {
         speechRecognizer.destroy()
         tts.shutdown()
         translationEngine.close()
+    }
+
+    companion object {
+        private const val KEY_HISTORY = "transcript_history"
     }
 }
