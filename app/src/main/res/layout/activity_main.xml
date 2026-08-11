@@ -5,16 +5,33 @@
     android:orientation="vertical"
     android:background="@color/background">
 
-    <TextView
-        android:id="@+id/statusText"
+    <!-- Fila de estado + indicador de "traduciendo..." -->
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:padding="12dp"
-        android:gravity="center"
-        android:textSize="14sp"
-        android:textColor="@color/text_primary"
-        android:background="#FFFFFF"
-        android:text="@string/status_loading" />
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="#FFFFFF">
+
+        <TextView
+            android:id="@+id/statusText"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:padding="12dp"
+            android:gravity="center"
+            android:textSize="14sp"
+            android:textColor="@color/text_primary"
+            android:text="@string/status_loading" />
+
+        <ProgressBar
+            android:id="@+id/progressBar"
+            style="?android:attr/progressBarStyleSmall"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_marginEnd="16dp"
+            android:visibility="gone" />
+    </LinearLayout>
 
     <Button
         android:id="@+id/btnPickModel"
@@ -41,6 +58,7 @@
             android:layout_weight="1"
             android:layout_marginEnd="6dp"
             android:background="@drawable/spinner_background" />
+
         <Spinner
             android:id="@+id/spinnerLangB"
             android:layout_width="0dp"
@@ -49,6 +67,21 @@
             android:layout_marginStart="6dp"
             android:background="@drawable/spinner_background" />
     </LinearLayout>
+
+    <!-- Botón para borrar la conversación guardada -->
+    <TextView
+        android:id="@+id/btnClearHistory"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="end"
+        android:layout_marginTop="6dp"
+        android:layout_marginEnd="12dp"
+        android:padding="8dp"
+        android:text="Borrar conversación"
+        android:textColor="@color/spanish_color"
+        android:textSize="13sp"
+        android:clickable="true"
+        android:focusable="true" />
 
     <ScrollView
         android:id="@+id/scrollView"
