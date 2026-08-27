@@ -70,8 +70,8 @@ class TranslationEngine(private val modelFile: File) {
         withContext(Dispatchers.IO) {
             mutex.withLock {
                 val partes = mutableListOf<Content>()
-                images.forEach { img -> partes.add(Content.ImageFile(img.absolutePath)) }
                 partes.add(Content.Text(prompt))
+                images.forEach { img -> partes.add(Content.ImageFile(img.absolutePath)) }
                 val contents = Contents.of(*partes.toTypedArray())
                 engine.createConversation().use { conversation ->
                     conversation.sendMessage(contents).toString().trim()
