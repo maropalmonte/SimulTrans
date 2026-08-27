@@ -21,6 +21,7 @@ import android.view.View
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.Button
+import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ProgressBar
@@ -45,25 +46,24 @@ import java.util.Locale
 import kotlin.system.exitProcess
 
 /**
- * App de traducción simultánea multi-idioma + asistente IA con prompt
- * libre, usando Gemma 4 E2B a través de LiteRT-LM, 100% on-device.
+ * App de traducci贸n simult谩nea multi-idioma + asistente IA con prompt
+ * libre (texto o voz), usando Gemma 4 E2B a trav茅s de LiteRT-LM, 100%
+ * on-device.
  *
- * Tiene 2 pestañas:
+ * Tiene 2 pesta帽as:
  * - "Traductor": la funcionalidad original (2 idiomas, botones de hablar).
- * - "Asistente IA": prompt de texto libre, con opción de adjuntar una
- *   imagen, un PDF (se rasteriza página a página y se envía como
- *   imágenes) o un .txt (su contenido se añade al prompt como contexto).
+ * - "Asistente IA": prompt libre por texto o dictado por voz (bot贸n 馃帳,
+ *   con el idioma elegido en su propio desplegable), con opci贸n de
+ *   adjuntar imagen/PDF/txt, y lectura opcional de la respuesta en voz
+ *   alta (checkbox 馃攰).
  *
  * CAPTURA DE ERRORES: si la app se cierra por un fallo inesperado, el
- * stack trace se guarda en SharedPreferences (ver installCrashHandler /
- * mostrarUltimoCrashSiExiste). La próxima vez que se abra la app, se
- * muestra en un diálogo con botón "Copiar" — pensado para poder depurar
- * sin ordenador ni adb, copiando el error directamente desde el móvil.
+ * stack trace se guarda en SharedPreferences y se muestra en un di谩logo
+ * copiable la pr贸xima vez que se abre la app.
  *
  * El modelo NO se incluye en el APK (pesa varios GB). Se descarga con el
- * navegador del propio móvil desde Hugging Face y se selecciona dentro de
- * la app con el botón "Elegir archivo del modelo" (selector de documentos
- * del sistema) — no hace falta ordenador, cable ni adb.
+ * navegador del propio m贸vil desde Hugging Face y se selecciona dentro de
+ * la app con el bot贸n "Elegir archivo del modelo".
  *
  * Descarga el archivo .litertlm (tras aceptar la licencia de Gemma) desde:
  *   https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm
@@ -71,10 +71,9 @@ import kotlin.system.exitProcess
 
 /**
  * Idiomas soportados. displayName se usa tanto en la UI como en el prompt
- * de traducción (ej. "traduce de español a inglés"). speechLocale es el
- * código que espera SpeechRecognizer; ttsLocale es el Locale que espera
- * TextToSpeech. colorHex se usa para el botón y, en versión clara, para
- * el fondo de la burbuja de ese idioma.
+ * de traducci贸n. speechLocale es el c贸digo que espera SpeechRecognizer;
+ * ttsLocale es el Locale que espera TextToSpeech. colorHex se usa para el
+ * bot贸n y, en versi贸n clara, para el fondo de la burbuja de ese idioma.
  */
 enum class Idioma(
     val displayName: String,
@@ -82,14 +81,14 @@ enum class Idioma(
     val ttsLocale: Locale,
     val colorHex: String
 ) {
-    ESPANOL("Español", "es-ES", Locale("es", "ES"), "#C60B1E"),
-    INGLES("Inglés", "en-US", Locale.US, "#00247D"),
-    FRANCES("Francés", "fr-FR", Locale.FRANCE, "#0055A4"),
+    ESPANOL("Espa帽ol", "es-ES", Locale("es", "ES"), "#C60B1E"),
+    INGLES("Ingl茅s", "en-US", Locale.US, "#00247D"),
+    FRANCES("Franc茅s", "fr-FR", Locale.FRANCE, "#0055A4"),
     ITALIANO("Italiano", "it-IT", Locale.ITALY, "#008C45"),
     CHINO("Chino", "zh-CN", Locale.SIMPLIFIED_CHINESE, "#DE2910"),
     TURCO("Turco", "tr-TR", Locale("tr", "TR"), "#E30A17"),
-    ARABE("Árabe", "ar-SA", Locale("ar", "SA"), "#006C35"),
-    ALEMAN("Alemán", "de-DE", Locale.GERMANY, "#FFCE00");
+    ARABE("脕rabe", "ar-SA", Locale("ar", "SA"), "#006C35"),
+    ALEMAN("Alem谩n", "de-DE", Locale.GERMANY, "#FFCE00");
 
     override fun toString(): String = displayName
 }
@@ -113,8 +112,11 @@ class MainActivity : AppCompatActivity() {
     private lateinit var assistantContainer: LinearLayout
     private lateinit var assistantTranscript: LinearLayout
     private lateinit var assistantScrollView: ScrollView
+    private lateinit var spinnerAssistantLang: Spinner
     private lateinit var promptInput: EditText
     private lateinit var btnAttach: Button
+    private lateinit var btnMic: Button
+    private lateinit var chkSpeakResponses: CheckBox
     private lateinit var btnSendPrompt: Button
     private lateinit var txtAttachment: TextView
 
@@ -123,14 +125,18 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tts: TextToSpeech
     private lateinit var modelFile: File
     private lateinit var prefs: SharedPreferences
-    // Pareja de idiomas activa en la conversación. Por defecto Español/Inglés.
+
+    // Pareja de idiomas activa en la conversaci贸n del Traductor.
     private var langA: Idioma = Idioma.ESPANOL
     private var langB: Idioma = Idioma.INGLES
+
+    // Idioma de voz del Asistente IA (dictado y lectura de respuestas).
+    private var assistantVoiceLang: Idioma = Idioma.ESPANOL
 
     private var isBusy = false
     private var modelReady = false
 
-    // Adjunto pendiente de enviar en la pestaña Asistente IA.
+    // Adjunto pendiente de enviar en la pesta帽a Asistente IA.
     private var pendingImages: List<File> = emptyList()
     private var pendingTextContext: String? = null
     private var pendingAttachmentLabel: String? = null
@@ -151,7 +157,7 @@ class MainActivity : AppCompatActivity() {
         ActivityResultContracts.RequestPermission()
     ) { granted ->
         if (!granted) {
-            statusText.text = "Se necesita permiso de micrófono para funcionar."
+            statusText.text = "Se necesita permiso de micr贸fono para funcionar."
         }
     }
 
@@ -160,10 +166,11 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
 
         // Se comprueba y muestra el error ANTES de tocar el layout ni las
-        // vistas, para que el diálogo aparezca incluso si el fallo está en
-        // el propio inflado de activity_main.xml o en algún findViewById.
+        // vistas, para que el di谩logo aparezca incluso si el fallo est谩 en
+        // el propio inflado de activity_main.xml o en alg煤n findViewById.
         prefs = getSharedPreferences("simultrans_prefs", MODE_PRIVATE)
         mostrarUltimoCrashSiExiste()
+
         setContentView(R.layout.activity_main)
 
         statusText = findViewById(R.id.statusText)
@@ -183,13 +190,17 @@ class MainActivity : AppCompatActivity() {
         assistantContainer = findViewById(R.id.assistantContainer)
         assistantTranscript = findViewById(R.id.assistantTranscript)
         assistantScrollView = findViewById(R.id.assistantScrollView)
+        spinnerAssistantLang = findViewById(R.id.spinnerAssistantLang)
         promptInput = findViewById(R.id.promptInput)
         btnAttach = findViewById(R.id.btnAttach)
+        btnMic = findViewById(R.id.btnMic)
+        chkSpeakResponses = findViewById(R.id.chkSpeakResponses)
         btnSendPrompt = findViewById(R.id.btnSendPrompt)
         txtAttachment = findViewById(R.id.txtAttachment)
 
         ensureMicPermission()
         setupLanguageSpinners()
+        setupAssistantLanguageSpinner()
         updateLanguageButtons()
         restoreHistory()
         setupTabs()
@@ -198,6 +209,7 @@ class MainActivity : AppCompatActivity() {
         btnAttach.setOnClickListener {
             pickAttachment.launch(arrayOf("image/*", "application/pdf", "text/plain"))
         }
+        btnMic.setOnClickListener { startListeningForAssistant() }
         btnSendPrompt.setOnClickListener { sendPrompt() }
 
         tts = TextToSpeech(this) { }
@@ -222,9 +234,8 @@ class MainActivity : AppCompatActivity() {
     /**
      * Instala un manejador global de errores no capturados: guarda el
      * stack trace en SharedPreferences antes de que la app se cierre, para
-     * poder mostrarlo la próxima vez que se abra (ver
-     * mostrarUltimoCrashSiExiste). Debe llamarse ANTES de super.onCreate()
-     * para capturar también fallos muy tempranos (inflado de layout, etc).
+     * poder mostrarlo la pr贸xima vez que se abra. Debe llamarse ANTES de
+     * super.onCreate() para capturar tambi茅n fallos muy tempranos.
      */
     private fun installCrashHandler() {
         val manejadorPrevio = Thread.getDefaultUncaughtExceptionHandler()
@@ -236,8 +247,7 @@ class MainActivity : AppCompatActivity() {
                     .putString(KEY_LAST_CRASH, trace)
                     .apply()
             } catch (e: Exception) {
-                // Si ni siquiera se puede guardar el error, no hacemos nada más:
-                // seguimos con el cierre normal para no dejar la app colgada.
+                // Si ni siquiera se puede guardar el error, seguimos con el cierre normal.
             }
             manejadorPrevio?.uncaughtException(thread, throwable)
                 ?: run {
@@ -248,10 +258,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * Si en el arranque anterior la app se cerró por un error, lo muestra
-     * en un diálogo con el texto completo y seleccionable, más un botón
-     * "Copiar" que lo pone en el portapapeles. Se borra tras mostrarlo,
-     * para no repetirlo en el siguiente arranque.
+     * Si en el arranque anterior la app se cerr贸 por un error, lo muestra
+     * en un di谩logo con el texto completo y seleccionable, m谩s un bot贸n
+     * "Copiar" que lo pone en el portapapeles.
      */
     private fun mostrarUltimoCrashSiExiste() {
         val texto = prefs.getString(KEY_LAST_CRASH, null) ?: return
@@ -267,7 +276,7 @@ class MainActivity : AppCompatActivity() {
             val scroll = ScrollView(this).apply { addView(textView) }
 
             AlertDialog.Builder(this)
-                .setTitle("La app se cerró por un error")
+                .setTitle("La app se cerr贸 por un error")
                 .setView(scroll)
                 .setPositiveButton("Copiar") { _, _ ->
                     val clipboard = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
@@ -278,12 +287,11 @@ class MainActivity : AppCompatActivity() {
                 .setCancelable(true)
                 .show()
         } catch (e: Exception) {
-            // Si ni el propio diálogo se puede mostrar, al menos avisamos con un Toast breve.
             Toast.makeText(this, "Error guardado pero no se pudo mostrar: ${e.message}", Toast.LENGTH_LONG).show()
         }
     }
 
-    /** Alterna entre la pestaña Traductor y la pestaña Asistente IA. */
+    /** Alterna entre la pesta帽a Traductor y la pesta帽a Asistente IA. */
     private fun setupTabs() {
         tabTranslator.setOnClickListener {
             translatorContainer.visibility = View.VISIBLE
@@ -295,10 +303,69 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /** Desplegable de idioma de voz del Asistente IA (dictado + lectura). Por defecto Espa帽ol. */
+    private fun setupAssistantLanguageSpinner() {
+        val nombres = Idioma.values().map { it.displayName }
+        val adapter = ArrayAdapter(this, R.layout.spinner_item, nombres)
+        adapter.setDropDownViewResource(R.layout.spinner_item)
+        spinnerAssistantLang.adapter = adapter
+        spinnerAssistantLang.setSelection(Idioma.ESPANOL.ordinal)
+
+        spinnerAssistantLang.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                assistantVoiceLang = Idioma.values()[position]
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+    }
+
+    /** Dicta por voz la pregunta del Asistente IA (no traduce ni env铆a: solo rellena el cuadro de texto). */
+    private fun startListeningForAssistant() {
+        if (isBusy) return
+        isBusy = true
+        statusText.text = getString(R.string.listening)
+
+        val intent = android.content.Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, assistantVoiceLang.speechLocale)
+            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+        }
+
+        speechRecognizer.setRecognitionListener(object : RecognitionListener {
+            override fun onResults(results: Bundle?) {
+                isBusy = false
+                statusText.text = getString(R.string.status_ready)
+                val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                val spokenText = matches?.firstOrNull()
+                if (!spokenText.isNullOrBlank()) {
+                    val actual = promptInput.text.toString()
+                    val nuevoTexto = if (actual.isBlank()) spokenText else "$actual $spokenText"
+                    promptInput.setText(nuevoTexto)
+                    promptInput.setSelection(nuevoTexto.length)
+                }
+            }
+
+            override fun onError(error: Int) {
+                isBusy = false
+                statusText.text = getString(R.string.status_ready)
+            }
+
+            override fun onReadyForSpeech(params: Bundle?) {}
+            override fun onBeginningOfSpeech() {}
+            override fun onRmsChanged(rmsdB: Float) {}
+            override fun onBufferReceived(buffer: ByteArray?) {}
+            override fun onEndOfSpeech() {}
+            override fun onPartialResults(partialResults: Bundle?) {}
+            override fun onEvent(eventType: Int, params: Bundle?) {}
+        })
+
+        speechRecognizer.startListening(intent)
+    }
+
     /**
      * Copia el archivo elegido (imagen, PDF o texto) a un archivo temporal
      * propio de la app, porque LiteRT-LM necesita rutas de archivo reales,
-     * no content:// Uris. Si es PDF, rasteriza sus páginas a imágenes; si
+     * no content:// Uris. Si es PDF, rasteriza sus p谩ginas a im谩genes; si
      * es texto, lo lee como contexto para el prompt.
      */
     private fun handleAttachmentPicked(uri: Uri) {
@@ -314,7 +381,7 @@ class MainActivity : AppCompatActivity() {
                             }
                             pendingImages = listOf(imgFile)
                             pendingTextContext = null
-                            pendingAttachmentLabel = "📎 Imagen adjunta"
+                            pendingAttachmentLabel = "馃搸 Imagen adjunta"
                         }
                         mimeType == "application/pdf" -> {
                             val pdfFile = File(cacheDir, "attachment.pdf")
@@ -324,13 +391,13 @@ class MainActivity : AppCompatActivity() {
                             val paginas = rasterizePdf(pdfFile, maxPages = 5)
                             pendingImages = paginas
                             pendingTextContext = null
-                            pendingAttachmentLabel = "📎 PDF adjunto (${paginas.size} página/s)"
+                            pendingAttachmentLabel = "馃搸 PDF adjunto (${paginas.size} p谩gina/s)"
                         }
                         mimeType == "text/plain" -> {
                             val texto = contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } ?: ""
                             pendingImages = emptyList()
                             pendingTextContext = texto
-                            pendingAttachmentLabel = "📎 Documento de texto adjunto"
+                            pendingAttachmentLabel = "馃搸 Documento de texto adjunto"
                         }
                         else -> {
                             pendingAttachmentLabel = null
@@ -346,8 +413,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * Convierte cada página de un PDF en una imagen JPEG, usando el
-     * PdfRenderer del propio Android (sin librerías externas). Se limita
+     * Convierte cada p谩gina de un PDF en una imagen JPEG, usando el
+     * PdfRenderer del propio Android (sin librer铆as externas). Se limita
      * a maxPages para no disparar el tiempo de proceso ni la memoria en
      * documentos largos.
      */
@@ -375,7 +442,7 @@ class MainActivity : AppCompatActivity() {
         return resultado
     }
 
-    /** Envía el prompt del Asistente IA (con el adjunto pendiente, si lo hay). */
+    /** Env铆a el prompt del Asistente IA (con el adjunto pendiente, si lo hay). */
     private fun sendPrompt() {
         if (isBusy || !modelReady) return
         val texto = promptInput.text.toString().trim()
@@ -394,6 +461,8 @@ class MainActivity : AppCompatActivity() {
             texto
         }
         val imagenesParaEnviar = pendingImages
+        val leerRespuesta = chkSpeakResponses.isChecked
+
         promptInput.setText("")
         pendingImages = emptyList()
         pendingTextContext = null
@@ -408,6 +477,9 @@ class MainActivity : AppCompatActivity() {
             try {
                 val respuesta = translationEngine.ask(promptFinal, imagenesParaEnviar)
                 addAssistantBubble(respuesta, alignLeft = true, colorHex = "#4A90D9")
+                if (leerRespuesta) {
+                    speak(respuesta, assistantVoiceLang)
+                }
             } catch (e: Exception) {
                 addAssistantBubble("(Error: ${e.message})", alignLeft = true, colorHex = "#4A90D9")
             } finally {
@@ -418,7 +490,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /** Burbuja de la conversación del Asistente IA (independiente de la del Traductor). */
+    /** Burbuja de la conversaci贸n del Asistente IA (independiente de la del Traductor). */
     private fun addAssistantBubble(text: String, alignLeft: Boolean, colorHex: String) {
         if (text.isBlank()) return
         val bubble = createBubbleView(text, colorHex, alignLeft)
@@ -427,9 +499,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * Configura los dos desplegables de idioma. Por defecto: Español en A,
-     * Inglés en B. Si el usuario elige el mismo idioma en los dos, se
-     * avisa y se deshabilitan los botones hasta que elija dos distintos.
+     * Configura los dos desplegables de idioma del Traductor. Por defecto:
+     * Espa帽ol en A, Ingl茅s en B. Si el usuario elige el mismo idioma en
+     * los dos, se avisa y se deshabilitan los botones.
      */
     private fun setupLanguageSpinners() {
         val nombres = Idioma.values().map { it.displayName }
@@ -458,7 +530,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /** Actualiza el texto y color de los botones según langA/langB. */
+    /** Actualiza el texto y color de los botones seg煤n langA/langB. */
     private fun updateLanguageButtons() {
         btnLangA.text = "Hablar en ${langA.displayName}"
         btnLangB.text = "Hablar en ${langB.displayName}"
@@ -476,11 +548,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * Copia el archivo .litertlm elegido en el selector de documentos al
-     * almacenamiento privado de la app. Se copia (en vez de leer el Uri
-     * directamente) porque LiteRT-LM necesita una ruta de archivo real, no
-     * un content:// Uri, y porque así el modelo persiste aunque el usuario
-     * borre el archivo original de Descargas.
+     * Copia el archivo .litertlm elegido al almacenamiento privado de la
+     * app. Se copia (en vez de leer el Uri directamente) porque LiteRT-LM
+     * necesita una ruta de archivo real, no un content:// Uri.
      */
     private fun copyModelFromUri(uri: Uri) {
         btnPickModel.isEnabled = false
@@ -561,6 +631,7 @@ class MainActivity : AppCompatActivity() {
                 isBusy = false
                 statusText.text = getString(R.string.status_ready)
             }
+
             override fun onReadyForSpeech(params: Bundle?) {}
             override fun onBeginningOfSpeech() {}
             override fun onRmsChanged(rmsdB: Float) {}
@@ -577,7 +648,6 @@ class MainActivity : AppCompatActivity() {
         statusText.text = getString(R.string.translating)
         progressBar.visibility = View.VISIBLE
         addBubble(spokenText, fromIdioma)
-
         lifecycleScope.launch {
             try {
                 val translated = translationEngine.translate(
@@ -598,10 +668,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * Habla el texto traducido en el idioma indicado. Se comprueba
-     * explícitamente si el motor de TTS tiene instalado el paquete de voz
-     * de ese idioma. Si falta, se avisa y se lleva al usuario a
-     * instalarlo, en vez de fallar en silencio.
+     * Habla un texto en el idioma indicado. Se comprueba expl铆citamente si
+     * el motor de TTS tiene instalado el paquete de voz de ese idioma. Si
+     * falta, se avisa y se lleva al usuario a instalarlo. La usan tanto el
+     * Traductor como (opcionalmente) el Asistente IA.
      */
     private fun speak(text: String, idioma: Idioma) {
         val result = tts.setLanguage(idioma.ttsLocale)
@@ -609,12 +679,12 @@ class MainActivity : AppCompatActivity() {
             result == TextToSpeech.LANG_NOT_SUPPORTED
 
         if (faltaPaquete) {
-            statusText.text = "Falta la voz de ${idioma.displayName} en este móvil. Abriendo instalación..."
+            statusText.text = "Falta la voz de ${idioma.displayName} en este m贸vil. Abriendo instalaci贸n..."
             try {
                 val installIntent = android.content.Intent(TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA)
                 startActivity(installIntent)
             } catch (e: Exception) {
-                statusText.text = "Instala la voz de ${idioma.displayName} desde Ajustes > Accesibilidad > Conversión de texto a voz."
+                statusText.text = "Instala la voz de ${idioma.displayName} desde Ajustes > Accesibilidad > Conversi贸n de texto a voz."
             }
             return
         }
@@ -623,11 +693,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * Crea la vista de una burbuja de conversación, coloreada según
-     * colorHex y alineada a la izquierda o derecha según alignLeft.
-     * Tocarla copia su texto al portapapeles. La usan tanto la pestaña
-     * Traductor (colores por idioma) como el Asistente IA (colores fijos
-     * para "tú" y "asistente"). No la añade ni la guarda por sí misma.
+     * Crea la vista de una burbuja de conversaci贸n, coloreada seg煤n
+     * colorHex y alineada a la izquierda o derecha seg煤n alignLeft.
+     * Tocarla copia su texto al portapapeles.
      */
     private fun createBubbleView(text: String, colorHex: String, alignLeft: Boolean): TextView {
         val density = resources.displayMetrics.density
@@ -661,7 +729,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /** Añade una burbuja nueva a la conversación del Traductor y la guarda en el historial. */
+    /** A帽ade una burbuja nueva a la conversaci贸n del Traductor y la guarda en el historial. */
     private fun addBubble(text: String, idioma: Idioma) {
         val alignLeft = idioma == langA
         val bubble = createBubbleView(text, idioma.colorHex, alignLeft)
@@ -670,7 +738,7 @@ class MainActivity : AppCompatActivity() {
         saveHistoryEntry(text, idioma, alignLeft)
     }
 
-    /** Añade una entrada al JSON guardado en SharedPreferences. */
+    /** A帽ade una entrada al JSON guardado en SharedPreferences. */
     private fun saveHistoryEntry(text: String, idioma: Idioma, alignLeft: Boolean) {
         val existing = prefs.getString(KEY_HISTORY, null)
         val arr = if (existing != null) JSONArray(existing) else JSONArray()
@@ -696,15 +764,15 @@ class MainActivity : AppCompatActivity() {
             }
             scrollView.post { scrollView.fullScroll(View.FOCUS_DOWN) }
         } catch (e: Exception) {
-            // Historial corrupto o de una versión anterior: se ignora y se empieza de cero.
+            // Historial corrupto o de una versi贸n anterior: se ignora y se empieza de cero.
         }
     }
 
-    /** Borra la conversación del Traductor de la pantalla y del almacenamiento guardado. */
+    /** Borra la conversaci贸n del Traductor de la pantalla y del almacenamiento guardado. */
     private fun clearHistory() {
         transcriptContainer.removeAllViews()
         prefs.edit().remove(KEY_HISTORY).apply()
-        Toast.makeText(this, "Conversación borrada", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Conversaci贸n borrada", Toast.LENGTH_SHORT).show()
     }
 
     override fun onDestroy() {
