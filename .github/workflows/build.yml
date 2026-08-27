@@ -32,6 +32,10 @@ jobs:
 
       - name: Compilar APK de depuración
         run: gradle assembleDebug
+        env:
+          LANG: es_ES.UTF-8
+          LC_ALL: es_ES.UTF-8
+          JAVA_TOOL_OPTIONS: "-Dfile.encoding=UTF-8"
 
       - name: Subir APK como artefacto
         uses: actions/upload-artifact@v4
