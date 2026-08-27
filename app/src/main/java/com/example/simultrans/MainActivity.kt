@@ -113,6 +113,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var assistantTranscript: LinearLayout
     private lateinit var assistantScrollView: ScrollView
     private lateinit var spinnerAssistantLang: Spinner
+    private lateinit var btnClearAssistantHistory: TextView
     private lateinit var promptInput: EditText
     private lateinit var btnAttach: Button
     private lateinit var btnMic: Button
@@ -164,7 +165,6 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         installCrashHandler()
         super.onCreate(savedInstanceState)
-
         // Se comprueba y muestra el error ANTES de tocar el layout ni las
         // vistas, para que el di谩logo aparezca incluso si el fallo est谩 en
         // el propio inflado de activity_main.xml o en alg煤n findViewById.
@@ -191,6 +191,7 @@ class MainActivity : AppCompatActivity() {
         assistantTranscript = findViewById(R.id.assistantTranscript)
         assistantScrollView = findViewById(R.id.assistantScrollView)
         spinnerAssistantLang = findViewById(R.id.spinnerAssistantLang)
+        btnClearAssistantHistory = findViewById(R.id.btnClearAssistantHistory)
         promptInput = findViewById(R.id.promptInput)
         btnAttach = findViewById(R.id.btnAttach)
         btnMic = findViewById(R.id.btnMic)
@@ -203,9 +204,10 @@ class MainActivity : AppCompatActivity() {
         setupAssistantLanguageSpinner()
         updateLanguageButtons()
         restoreHistory()
+        restoreAssistantHistory()
         setupTabs()
-
         btnClearHistory.setOnClickListener { clearHistory() }
+        btnClearAssistantHistory.setOnClickListener { clearAssistantHistory() }
         btnAttach.setOnClickListener {
             pickAttachment.launch(arrayOf("image/*", "application/pdf", "text/plain"))
         }
@@ -496,6 +498,44 @@ class MainActivity : AppCompatActivity() {
         val bubble = createBubbleView(text, colorHex, alignLeft)
         assistantTranscript.addView(bubble)
         assistantScrollView.post { assistantScrollView.fullScroll(View.FOCUS_DOWN) }
+        saveAssistantHistoryEntry(text, colorHex, alignLeft)
+    }
+
+    /** A帽ade una entrada al JSON del historial del Asistente IA en SharedPreferences. */
+    private fun saveAssistantHistoryEntry(text: String, colorHex: String, alignLeft: Boolean) {
+        val existing = prefs.getString(KEY_ASSISTANT_HISTORY, null)
+        val arr = if (existing != null) JSONArray(existing) else JSONArray()
+        val obj = JSONObject()
+        obj.put("text", text)
+        obj.put("color", colorHex)
+        obj.put("left", alignLeft)
+        arr.put(obj)
+        prefs.edit().putString(KEY_ASSISTANT_HISTORY, arr.toString()).apply()
+    }
+
+    /** Reconstruye las burbujas guardadas del Asistente IA al abrir la app. */
+    private fun restoreAssistantHistory() {
+        val json = prefs.getString(KEY_ASSISTANT_HISTORY, null) ?: return
+        try {
+            val arr = JSONArray(json)
+            for (i in 0 until arr.length()) {
+                val obj = arr.getJSONObject(i)
+                val text = obj.getString("text")
+                val colorHex = obj.getString("color")
+                val alignLeft = obj.getBoolean("left")
+                assistantTranscript.addView(createBubbleView(text, colorHex, alignLeft))
+            }
+            assistantScrollView.post { assistantScrollView.fullScroll(View.FOCUS_DOWN) }
+        } catch (e: Exception) {
+            // Historial corrupto o de una versi贸n anterior: se ignora y se empieza de cero.
+        }
+    }
+
+    /** Borra la conversaci贸n del Asistente IA de la pantalla y del almacenamiento guardado. */
+    private fun clearAssistantHistory() {
+        assistantTranscript.removeAllViews()
+        prefs.edit().remove(KEY_ASSISTANT_HISTORY).apply()
+        Toast.makeText(this, "Conversaci贸n borrada", Toast.LENGTH_SHORT).show()
     }
 
     /**
@@ -784,6 +824,7 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private const val KEY_HISTORY = "transcript_history"
+        private const val KEY_ASSISTANT_HISTORY = "assistant_history"
         private const val KEY_LAST_CRASH = "last_crash"
     }
 }
