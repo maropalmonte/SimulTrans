@@ -57,14 +57,17 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:layout_marginEnd="4dp"
+            android:backgroundTint="#FFFFFF"
+            android:textColor="@color/text_primary"
             android:text="Traductor" />
-
         <Button
             android:id="@+id/tabAssistant"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:layout_marginStart="4dp"
+            android:backgroundTint="#FFFFFF"
+            android:textColor="@color/text_primary"
             android:text="Asistente IA" />
     </LinearLayout>
 
@@ -140,7 +143,6 @@
             android:orientation="horizontal"
             android:padding="12dp"
             android:weightSum="2">
-
             <Button
                 android:id="@+id/btnLangA"
                 android:layout_width="0dp"
@@ -172,6 +174,32 @@
         android:orientation="vertical"
         android:visibility="gone">
 
+        <!-- Idioma de voz para dictar la pregunta y leer la respuesta -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:paddingTop="8dp"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Idioma de voz:"
+                android:textColor="@color/text_primary"
+                android:textSize="13sp"
+                android:layout_marginEnd="8dp" />
+
+            <Spinner
+                android:id="@+id/spinnerAssistantLang"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:background="@drawable/spinner_background" />
+        </LinearLayout>
+
         <ScrollView
             android:id="@+id/assistantScrollView"
             android:layout_width="match_parent"
@@ -186,6 +214,7 @@
                 android:orientation="vertical"
                 android:padding="12dp" />
         </ScrollView>
+
         <!-- Nombre del archivo adjunto pendiente de enviar (oculto si no hay ninguno) -->
         <TextView
             android:id="@+id/txtAttachment"
@@ -197,20 +226,31 @@
             android:textSize="13sp"
             android:textColor="@color/text_primary"
             android:visibility="gone" />
-
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:paddingStart="12dp"
             android:paddingEnd="12dp"
-            android:paddingBottom="8dp"
+            android:paddingBottom="4dp"
             android:gravity="center_vertical">
+
             <Button
                 android:id="@+id/btnAttach"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:backgroundTint="#FFFFFF"
+                android:textColor="@color/text_primary"
                 android:text="📎" />
+
+            <Button
+                android:id="@+id/btnMic"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="4dp"
+                android:backgroundTint="#FFFFFF"
+                android:textColor="@color/text_primary"
+                android:text="🎤" />
 
             <EditText
                 android:id="@+id/promptInput"
@@ -219,13 +259,24 @@
                 android:layout_weight="1"
                 android:layout_marginStart="8dp"
                 android:background="@drawable/spinner_background"
-                android:hint="Escribe tu pregunta..."
+                android:hint="Escribe o dicta tu pregunta..."
                 android:inputType="textMultiLine|textCapSentences"
                 android:maxLines="4"
                 android:padding="10dp"
                 android:textColor="@color/text_primary"
                 android:textSize="15sp" />
         </LinearLayout>
+
+        <CheckBox
+            android:id="@+id/chkSpeakResponses"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:layout_marginBottom="4dp"
+            android:text="🔊 Leer respuesta en voz alta"
+            android:textColor="@color/text_primary"
+            android:textSize="13sp" />
+
         <Button
             android:id="@+id/btnSendPrompt"
             android:layout_width="match_parent"
