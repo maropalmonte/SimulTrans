@@ -26,7 +26,7 @@ jobs:
       - name: Configurar Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: 8.7
+          gradle-version: 8.14.4
         # Este proyecto no incluye el "gradle wrapper" (gradlew), así que
         # usamos Gradle instalado directamente por esta acción en el runner.
 
