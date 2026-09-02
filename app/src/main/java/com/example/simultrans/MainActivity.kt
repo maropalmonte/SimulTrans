@@ -249,7 +249,19 @@ class MainActivity : AppCompatActivity() {
         modelFile = File(modelDir, "gemma-4-E2B-it.litertlm")
         translationEngine = TranslationEngine(modelFile)
 
-        speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this)
+        // En algunos fabricantes (Samsung incluido), el reconocedor de voz
+        // "genérico" no siempre respeta los paquetes de idioma offline ya
+        // descargados y falla igualmente sin conexión. Desde Android 12
+        // existe un reconocedor específico que fuerza el uso del modelo
+        // instalado en el propio dispositivo; lo usamos si está disponible.
+        speechRecognizer = if (
+            android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S &&
+            SpeechRecognizer.isOnDeviceRecognitionAvailable(this)
+        ) {
+            SpeechRecognizer.createOnDeviceSpeechRecognizer(this)
+        } else {
+            SpeechRecognizer.createSpeechRecognizer(this)
+        }
 
         btnLangA.setOnClickListener { startListening(langA) }
         btnLangB.setOnClickListener { startListening(langB) }
