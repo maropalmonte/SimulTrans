@@ -97,6 +97,7 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var statusText: TextView
     private lateinit var progressBar: ProgressBar
+    private lateinit var btnStopSpeech: Button
     private lateinit var transcriptContainer: LinearLayout
     private lateinit var scrollView: ScrollView
     private lateinit var spinnerLangA: Spinner
@@ -199,6 +200,7 @@ class MainActivity : AppCompatActivity() {
 
         statusText = findViewById(R.id.statusText)
         progressBar = findViewById(R.id.progressBar)
+        btnStopSpeech = findViewById(R.id.btnStopSpeech)
         transcriptContainer = findViewById(R.id.transcriptContainer)
         scrollView = findViewById(R.id.scrollView)
         spinnerLangA = findViewById(R.id.spinnerLangA)
@@ -232,6 +234,7 @@ class MainActivity : AppCompatActivity() {
         setupTabs()
 
         btnClearHistory.setOnClickListener { clearHistory() }
+        btnStopSpeech.setOnClickListener { tts.stop() }
         btnClearAssistantHistory.setOnClickListener { clearAssistantHistory() }
         btnAttach.setOnClickListener {
             pickAttachment.launch(arrayOf("image/*", "application/pdf", "text/plain"))
@@ -737,6 +740,25 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
+     * Quita símbolos que los motores de TTS suelen pronunciar en voz alta
+     * de forma literal (p. ej. "asterisco", "guion", "almohadilla") y que
+     * no aportan nada al oírlos: asteriscos, guiones bajos, almohadillas,
+     * tildes de markdown, comillas invertidas, barras verticales, viñetas
+     * al principio de línea y secuencias largas de puntos o guiones (como
+     * "..." o "---"). La puntuación normal (. , ; : ? !) se conserva, ya
+     * que el TTS la usa para pausas y entonación sin pronunciarla.
+     */
+    private fun limpiarTextoParaVoz(texto: String): String {
+        return texto
+            .replace(Regex("^[\\-•*]\\s+", RegexOption.MULTILINE), "")
+            .replace(Regex("[*_#`~|]"), "")
+            .replace(Regex("-{2,}"), " ")
+            .replace(Regex("\\.{2,}"), ".")
+            .replace(Regex("\\s{2,}"), " ")
+            .trim()
+    }
+
+    /**
      * Habla un texto en el idioma indicado. Se comprueba explícitamente si
      * el motor de TTS tiene instalado el paquete de voz de ese idioma. Si
      * falta, se avisa y se lleva al usuario a instalarlo. La usan tanto el
@@ -758,7 +780,7 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, null)
+        tts.speak(limpiarTextoParaVoz(text), TextToSpeech.QUEUE_FLUSH, null, null)
     }
 
     /**
