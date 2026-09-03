@@ -93,6 +93,7 @@ enum class Idioma(
     override fun toString(): String = displayName
 }
 
+
 class MainActivity : AppCompatActivity() {
 
     private lateinit var statusText: TextView
