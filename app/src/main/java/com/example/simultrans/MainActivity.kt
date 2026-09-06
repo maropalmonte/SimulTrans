@@ -93,7 +93,6 @@ enum class Idioma(
     override fun toString(): String = displayName
 }
 
-
 class MainActivity : AppCompatActivity() {
 
     private lateinit var statusText: TextView
@@ -250,19 +249,7 @@ class MainActivity : AppCompatActivity() {
         modelFile = File(modelDir, "gemma-4-E2B-it.litertlm")
         translationEngine = TranslationEngine(modelFile)
 
-        // En algunos fabricantes (Samsung incluido), el reconocedor de voz
-        // "genérico" no siempre respeta los paquetes de idioma offline ya
-        // descargados y falla igualmente sin conexión. Desde Android 12
-        // existe un reconocedor específico que fuerza el uso del modelo
-        // instalado en el propio dispositivo; lo usamos si está disponible.
-        speechRecognizer = if (
-            android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S &&
-            SpeechRecognizer.isOnDeviceRecognitionAvailable(this)
-        ) {
-            SpeechRecognizer.createOnDeviceSpeechRecognizer(this)
-        } else {
-            SpeechRecognizer.createSpeechRecognizer(this)
-        }
+        speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this)
 
         btnLangA.setOnClickListener { startListening(langA) }
         btnLangB.setOnClickListener { startListening(langB) }
@@ -363,6 +350,34 @@ class MainActivity : AppCompatActivity() {
     }
 
     /** Dicta por voz la pregunta del Asistente IA (no traduce ni envía: solo rellena el cuadro de texto). */
+    /**
+     * En Samsung y otros fabricantes con capa propia, Android puede elegir
+     * por defecto su motor de reconocimiento de voz (ligado a Bixby) en
+     * vez del de Google, aunque el usuario tenga los paquetes offline de
+     * Google descargados desde su app. Aquí se comprueba si el servicio de
+     * reconocimiento de Google está instalado y, si es así, se fuerza su
+     * uso explícitamente en el intent en vez de dejar que el sistema
+     * elija.
+     */
+    private fun paqueteReconocedorGoogle(): String? {
+        val candidatos = listOf(
+            "com.google.android.googlequicksearchbox",
+            "com.google.android.tts"
+        )
+        for (paquete in candidatos) {
+            val intent = android.content.Intent("android.speech.RecognitionService").apply {
+                setPackage(paquete)
+            }
+            try {
+                if (packageManager.resolveService(intent, 0) != null) return paquete
+            } catch (e: Exception) {
+                // Si no se puede resolver (restricción de visibilidad de paquetes),
+                // simplemente se prueba con el siguiente candidato.
+            }
+        }
+        return null
+    }
+
     private fun startListeningForAssistant() {
         if (isBusy) return
         isBusy = true
@@ -372,6 +387,7 @@ class MainActivity : AppCompatActivity() {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, assistantVoiceLang.speechLocale)
             putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+            paqueteReconocedorGoogle()?.let { setPackage(it) }
         }
 
         speechRecognizer.setRecognitionListener(object : RecognitionListener {
@@ -696,6 +712,7 @@ class MainActivity : AppCompatActivity() {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, idioma.speechLocale)
             putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+            paqueteReconocedorGoogle()?.let { setPackage(it) }
         }
 
         speechRecognizer.setRecognitionListener(object : RecognitionListener {
