@@ -1,0 +1,35 @@
+name: Build iOS (Simulator)
+# Compila la app iOS para el Simulador, sin necesidad de firma de Apple.
+# Es el "paso 1": comprobar que todo el engranaje (XcodeGen + Xcode en la
+# nube) funciona antes de meternos con firmar para un iPhone real.
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'ios/**'
+      - '.github/workflows/build-ios.yml'
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: ios
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+
+      - name: Instalar XcodeGen
+        run: brew install xcodegen
+
+      - name: Generar el proyecto Xcode a partir de project.yml
+        run: xcodegen generate
+
+      - name: Compilar para el Simulador de iOS (sin firma)
+        run: |
+          xcodebuild -project SimulTransIOS.xcodeproj \
+            -scheme SimulTransIOS \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            build
