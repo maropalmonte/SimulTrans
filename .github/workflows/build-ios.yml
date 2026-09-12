@@ -20,6 +20,11 @@ jobs:
       - name: Checkout del repositorio
         uses: actions/checkout@v4
 
+      - name: Instalar y activar Git LFS
+        run: |
+          brew install git-lfs || true
+          git lfs install
+
       - name: Instalar XcodeGen
         run: brew install xcodegen
 
