@@ -1,6 +1,10 @@
 name: SimulTransIOS
 options:
   bundleIdPrefix: com.example
+packages:
+  LiteRTLM:
+    url: https://github.com/google-ai-edge/LiteRT-LM
+    from: 0.12.0
 targets:
   SimulTransIOS:
     type: application
@@ -8,6 +12,9 @@ targets:
     deploymentTarget: "17.0"
     sources:
       - Sources
+    dependencies:
+      - package: LiteRTLM
+        product: LiteRTLM
     info:
       path: Info.plist
       properties:
