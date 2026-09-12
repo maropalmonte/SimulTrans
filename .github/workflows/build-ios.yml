@@ -37,4 +37,5 @@ jobs:
             -scheme SimulTransIOS \
             -sdk iphonesimulator \
             -destination 'generic/platform=iOS Simulator' \
+            ARCHS=arm64 ONLY_ACTIVE_ARCH=YES \
             build
