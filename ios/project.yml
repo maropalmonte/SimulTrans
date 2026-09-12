@@ -1,1 +1,20 @@
-
+name: SimulTransIOS
+options:
+  bundleIdPrefix: com.example
+targets:
+  SimulTransIOS:
+    type: application
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - Sources
+    info:
+      properties:
+        CFBundleDisplayName: SimulTrans
+        UILaunchScreen: {}
+        NSMicrophoneUsageDescription: "SimulTrans necesita el micrófono para traducir tu voz."
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.simultransios
+        SWIFT_VERSION: "5.0"
+        TARGETED_DEVICE_FAMILY: "1"
