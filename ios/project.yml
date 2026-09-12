@@ -9,6 +9,7 @@ targets:
     sources:
       - Sources
     info:
+      path: Info.plist
       properties:
         CFBundleDisplayName: SimulTrans
         UILaunchScreen: {}
