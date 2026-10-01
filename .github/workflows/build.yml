@@ -22,6 +22,12 @@ jobs:
 
       - name: Instalar Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          # Google retiró el paquete "tools" (heredado) del repositorio del
+          # SDK; la acción, por defecto, sigue intentando instalarlo y eso
+          # rompe el build con "Failed to find package 'tools'". Indicamos
+          # explícitamente solo lo que necesitamos para evitarlo.
+          packages: 'platform-tools platforms;android-34 build-tools;34.0.0'
 
       - name: Configurar Gradle
         uses: gradle/actions/setup-gradle@v4
