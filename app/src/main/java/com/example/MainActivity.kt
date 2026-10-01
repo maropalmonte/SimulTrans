@@ -702,7 +702,7 @@ class MainActivity : AppCompatActivity() {
 
         lifecycleScope.launch {
             try {
-                val respuesta = translationEngine.ask(promptFinal, imagenesParaEnviar)
+                val respuesta = translationEngine.askWithContext(promptFinal, imagenesParaEnviar)
                 addAssistantBubble(respuesta, alignLeft = true, colorHex = "#4A90D9")
                 if (leerRespuesta) {
                     speak(respuesta, assistantVoiceLang)
@@ -756,10 +756,12 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /** Borra la conversación del Asistente IA de la pantalla y del almacenamiento guardado. */
+    /** Borra la conversación del Asistente IA de la pantalla, del almacenamiento guardado
+     *  y del contexto que recordaba el modelo, para que el siguiente mensaje empiece de cero. */
     private fun clearAssistantHistory() {
         assistantTranscript.removeAllViews()
         prefs.edit().remove(KEY_ASSISTANT_HISTORY).apply()
+        lifecycleScope.launch { translationEngine.resetAssistantConversation() }
         Toast.makeText(this, "Conversación borrada", Toast.LENGTH_SHORT).show()
     }
 

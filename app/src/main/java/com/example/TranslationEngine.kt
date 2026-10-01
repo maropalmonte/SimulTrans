@@ -3,6 +3,7 @@ package com.example.simultrans
 import com.google.ai.edge.litertlm.Backend
 import com.google.ai.edge.litertlm.Content
 import com.google.ai.edge.litertlm.Contents
+import com.google.ai.edge.litertlm.Conversation
 import com.google.ai.edge.litertlm.ConversationConfig
 import com.google.ai.edge.litertlm.Engine
 import com.google.ai.edge.litertlm.EngineConfig
@@ -25,6 +26,14 @@ class TranslationEngine(private val modelFile: File) {
     private val mutex = Mutex()
     val isModelPresent: Boolean
         get() = modelFile.exists() && modelFile.length() > 0
+
+    /**
+     * Conversación "viva" de la pestaña Asistente IA. Se reutiliza entre
+     * turnos para que el modelo recuerde lo hablado antes (p. ej. "¿y en
+     * Francia?" después de una pregunta sobre capitales). Se cierra y
+     * se pone a null al borrar la conversación, para empezar de cero.
+     */
+    private var assistantConversation: Conversation? = null
 
     suspend fun initialize() = withContext(Dispatchers.IO) {
         val config = EngineConfig(
@@ -86,6 +95,38 @@ class TranslationEngine(private val modelFile: File) {
         }
 
     /**
+     * Igual que [ask], pero reutilizando siempre la misma [Conversation]
+     * del Asistente IA en vez de abrir una nueva en cada turno: así el
+     * modelo mantiene el contexto de lo hablado anteriormente mientras no
+     * se llame a [resetAssistantConversation] (p. ej. al pulsar "Borrar
+     * conversación").
+     */
+    suspend fun askWithContext(prompt: String, images: List<File> = emptyList()): String =
+        withContext(Dispatchers.IO) {
+            mutex.withLock {
+                val conversation = assistantConversation
+                    ?: engine.createConversation().also { assistantConversation = it }
+                val partes = mutableListOf<Content>()
+                partes.add(Content.Text(prompt))
+                images.forEach { img -> partes.add(Content.ImageFile(img.absolutePath)) }
+                val contents = Contents.of(*partes.toTypedArray())
+                conversation.sendMessage(contents).toString().trim()
+            }
+        }
+
+    /**
+     * Cierra la conversación del Asistente IA para que el siguiente mensaje
+     * empiece sin memoria de lo anterior. Se llama al borrar la conversación
+     * desde la pantalla.
+     */
+    suspend fun resetAssistantConversation() = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            assistantConversation?.close()
+            assistantConversation = null
+        }
+    }
+
+    /**
      * Transcribe un archivo de audio grabado con MediaRecorder, usando el
      * reconocimiento de voz nativo de Gemma 4 E2B. Sustituye por completo
      * al SpeechRecognizer del sistema operativo: no depende de qué motor
@@ -112,6 +153,7 @@ class TranslationEngine(private val modelFile: File) {
         }
 
     fun close() {
+        assistantConversation?.close()
         if (::engine.isInitialized) {
             engine.close()
         }
