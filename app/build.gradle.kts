@@ -7,19 +7,44 @@ plugins {
 
 android {
     namespace = "com.example.simultrans"
-    compileSdk = 34
+    // compileSdk/targetSdk 36: requisito de Google Play desde el 31 de
+    // agosto de 2026 para poder publicar o actualizar la app.
+    compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.example.simultrans"
+        // "com.example.*" es el paquete de plantilla de Android Studio y
+        // Google Play no permite publicar con él. Se usa el dominio propio
+        // en orden inverso, que es además la convención estándar de Android.
+        applicationId = "es.maropal.simultrans"
         minSdk = 26
-        targetSdk = 34
-        versionCode = 1
-        versionName = "1.0"
+        targetSdk = 36
+        // Permite fijar versionCode/versionName desde la línea de comandos
+        // (gradle bundleRelease -PversionCode=2 -PversionName=1.1) para que
+        // cada subida a Play Store use un código de versión distinto sin
+        // tener que tocar este archivo cada vez.
+        versionCode = (project.findProperty("versionCode") as String?)?.toInt() ?: 1
+        versionName = (project.findProperty("versionName") as String?) ?: "1.0"
+    }
+
+    signingConfigs {
+        create("release") {
+            // Se rellenan solo cuando el workflow de release los exporta
+            // como variables de entorno (ver .github/workflows/build-release.yml).
+            // El build de depuración normal (build.yml) no los necesita.
+            val keystorePath = System.getenv("ANDROID_KEYSTORE_PATH")
+            if (!keystorePath.isNullOrBlank()) {
+                storeFile = file(keystorePath)
+                storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("ANDROID_KEY_ALIAS")
+                keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
+            }
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 

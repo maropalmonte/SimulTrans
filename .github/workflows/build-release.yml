@@ -1,0 +1,63 @@
+name: Build Release AAB (Play Store)
+
+# Se lanza a mano desde la pestaña "Actions" de GitHub (botón "Run workflow"),
+# nunca automáticamente con cada push, porque cada ejecución debe llevar un
+# versionCode distinto y mayor que el de la última subida a Play Store.
+on:
+  workflow_dispatch:
+    inputs:
+      versionCode:
+        description: 'Código de versión (entero, mayor que el de la última subida a Play Store)'
+        required: true
+      versionName:
+        description: 'Nombre de versión visible para el usuario (ej. 1.0.0)'
+        required: true
+        default: '1.0'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Instalar Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools platforms;android-36 build-tools;36.0.0'
+
+      - name: Configurar Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.14.4
+
+      - name: Restaurar el keystore de firma desde el secreto
+        run: |
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/release.keystore"
+
+      - name: Compilar el Android App Bundle (.aab) firmado
+        run: |
+          gradle bundleRelease \
+            -PversionCode=${{ inputs.versionCode }} \
+            -PversionName=${{ inputs.versionName }}
+        env:
+          LANG: es_ES.UTF-8
+          LC_ALL: es_ES.UTF-8
+          JAVA_TOOL_OPTIONS: "-Dfile.encoding=UTF-8"
+          ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/release.keystore
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+
+      - name: Subir el .aab como artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: SimulTrans-release-aab
+          path: app/build/outputs/bundle/release/app-release.aab

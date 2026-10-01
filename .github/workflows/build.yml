@@ -27,7 +27,7 @@ jobs:
           # SDK; la acción, por defecto, sigue intentando instalarlo y eso
           # rompe el build con "Failed to find package 'tools'". Indicamos
           # explícitamente solo lo que necesitamos para evitarlo.
-          packages: 'platform-tools platforms;android-34 build-tools;34.0.0'
+          packages: 'platform-tools platforms;android-36 build-tools;36.0.0'
 
       - name: Configurar Gradle
         uses: gradle/actions/setup-gradle@v4
