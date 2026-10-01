@@ -96,7 +96,8 @@ enum class Idioma(
     CHINO("Chino", "zh-CN", Locale.SIMPLIFIED_CHINESE, "#DE2910"),
     TURCO("Turco", "tr-TR", Locale("tr", "TR"), "#E30A17"),
     ARABE("Árabe", "ar-SA", Locale("ar", "SA"), "#006C35"),
-    ALEMAN("Alemán", "de-DE", Locale.GERMANY, "#FFCE00");
+    ALEMAN("Alemán", "de-DE", Locale.GERMANY, "#FFCE00"),
+    PORTUGUES("Portugués", "pt-PT", Locale("pt", "PT"), "#046A38");
 
     override fun toString(): String = displayName
 }
@@ -155,6 +156,17 @@ class MainActivity : AppCompatActivity() {
     private var pendingImages: List<File> = emptyList()
     private var pendingTextContext: String? = null
     private var pendingAttachmentLabel: String? = null
+
+    /**
+     * Transcripción de la conversación del Asistente IA que había quedado
+     * guardada de una sesión anterior (se reconstruye en [restoreAssistantHistory]).
+     * Como la "memoria" del modelo vive solo en memoria RAM, al reabrir la app
+     * el modelo no recuerda nada aunque las burbujas sigan en pantalla; por
+     * eso se envía como contexto junto al primer mensaje nuevo que se mande,
+     * y luego se descarta (a partir de ahí la conversación en memoria ya
+     * mantiene el hilo por sí sola).
+     */
+    private var pendingAssistantContext: String? = null
 
     private val pickModelFile = registerForActivityResult(
         ActivityResultContracts.OpenDocument()
@@ -682,11 +694,19 @@ class MainActivity : AppCompatActivity() {
         }
         addAssistantBubble(etiquetaUsuario.ifBlank { pendingAttachmentLabel ?: "" }, alignLeft = false, colorHex = "#607D8B")
 
-        val promptFinal = if (pendingTextContext != null) {
-            "Contenido del documento adjunto:\n\n$pendingTextContext\n\nPregunta del usuario: $texto"
-        } else {
-            texto
+        val contextoPrevio = pendingAssistantContext
+        val promptFinal = when {
+            contextoPrevio != null && pendingTextContext != null ->
+                "Esta es la conversación que tuvimos antes de cerrar la app; tenla en cuenta para entender referencias a lo ya hablado:\n\n$contextoPrevio\n\nContenido del documento adjunto:\n\n$pendingTextContext\n\nPregunta del usuario: $texto"
+            contextoPrevio != null ->
+                "Esta es la conversación que tuvimos antes de cerrar la app; tenla en cuenta para entender referencias a lo ya hablado:\n\n$contextoPrevio\n\nPregunta del usuario: $texto"
+            pendingTextContext != null ->
+                "Contenido del documento adjunto:\n\n$pendingTextContext\n\nPregunta del usuario: $texto"
+            else -> texto
         }
+        // Solo hace falta inyectar la conversación anterior una vez: a partir de
+        // aquí la Conversation en memoria del motor ya mantiene el hilo sola.
+        pendingAssistantContext = null
         val imagenesParaEnviar = pendingImages
         val leerRespuesta = chkSpeakResponses.isChecked
 
@@ -738,19 +758,30 @@ class MainActivity : AppCompatActivity() {
         prefs.edit().putString(KEY_ASSISTANT_HISTORY, arr.toString()).apply()
     }
 
-    /** Reconstruye las burbujas guardadas del Asistente IA al abrir la app. */
+    /**
+     * Reconstruye las burbujas guardadas del Asistente IA al abrir la app, y
+     * además guarda esa conversación en [pendingAssistantContext] para que,
+     * en cuanto el usuario escriba algo nuevo, se le pase al modelo como
+     * contexto (ver [sendPrompt]).
+     */
     private fun restoreAssistantHistory() {
         val json = prefs.getString(KEY_ASSISTANT_HISTORY, null) ?: return
         try {
             val arr = JSONArray(json)
+            val transcripcion = StringBuilder()
             for (i in 0 until arr.length()) {
                 val obj = arr.getJSONObject(i)
                 val text = obj.getString("text")
                 val colorHex = obj.getString("color")
                 val alignLeft = obj.getBoolean("left")
                 assistantTranscript.addView(createBubbleView(text, colorHex, alignLeft))
+                val quienHabla = if (alignLeft) "Asistente" else "Usuario"
+                transcripcion.append("$quienHabla: $text\n")
             }
             assistantScrollView.post { assistantScrollView.fullScroll(View.FOCUS_DOWN) }
+            if (transcripcion.isNotBlank()) {
+                pendingAssistantContext = transcripcion.toString().trim()
+            }
         } catch (e: Exception) {
             // Historial corrupto o de una versión anterior: se ignora y se empieza de cero.
         }
@@ -761,6 +792,7 @@ class MainActivity : AppCompatActivity() {
     private fun clearAssistantHistory() {
         assistantTranscript.removeAllViews()
         prefs.edit().remove(KEY_ASSISTANT_HISTORY).apply()
+        pendingAssistantContext = null
         lifecycleScope.launch { translationEngine.resetAssistantConversation() }
         Toast.makeText(this, "Conversación borrada", Toast.LENGTH_SHORT).show()
     }
