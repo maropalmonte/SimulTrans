@@ -22,6 +22,9 @@
             android:gravity="center"
             android:textSize="14sp"
             android:textColor="@color/text_primary"
+            android:textColorLink="#1E4FA3"
+            android:autoLink="web"
+            android:textIsSelectable="true"
             android:text="@string/status_loading" />
 
         <ProgressBar
