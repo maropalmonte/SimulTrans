@@ -71,8 +71,10 @@ import kotlin.system.exitProcess
  * navegador del propio móvil desde Hugging Face y se selecciona dentro de
  * la app con el botón "Elegir archivo del modelo".
  *
- * Descarga el archivo .litertlm (tras aceptar la licencia de Gemma) desde:
- *   https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm
+ * El botón "Descargar el modelo" abre en el navegador el enlace directo
+ * de MODEL_DOWNLOAD_URL (repositorio público, licencia Apache 2.0, sin
+ * necesidad de cuenta). La app no pide permiso de Internet: la descarga
+ * la hace el navegador, no la app.
  */
 
 /**
@@ -114,6 +116,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnLangA: Button
     private lateinit var btnLangB: Button
     private lateinit var btnPickModel: Button
+    private lateinit var btnDownloadModel: Button
     private lateinit var btnClearHistory: TextView
     private lateinit var footerBanner: LinearLayout
 
@@ -210,6 +213,7 @@ class MainActivity : AppCompatActivity() {
         btnLangA = findViewById(R.id.btnLangA)
         btnLangB = findViewById(R.id.btnLangB)
         btnPickModel = findViewById(R.id.btnPickModel)
+        btnDownloadModel = findViewById(R.id.btnDownloadModel)
         btnClearHistory = findViewById(R.id.btnClearHistory)
         footerBanner = findViewById(R.id.footerBanner)
 
@@ -261,6 +265,13 @@ class MainActivity : AppCompatActivity() {
         btnPickModel.setOnClickListener {
             // "*/*" porque .litertlm no tiene un tipo MIME reconocido por Android
             pickModelFile.launch(arrayOf("*/*"))
+        }
+        btnDownloadModel.setOnClickListener {
+            try {
+                startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, Uri.parse(MODEL_DOWNLOAD_URL)))
+            } catch (e: Exception) {
+                Toast.makeText(this, "No se pudo abrir el navegador", Toast.LENGTH_LONG).show()
+            }
         }
 
         loadModel(translationEngine)
@@ -884,9 +895,11 @@ class MainActivity : AppCompatActivity() {
             statusText.text = getString(R.string.status_model_missing)
             btnPickModel.isEnabled = true
             btnPickModel.visibility = View.VISIBLE
+            btnDownloadModel.visibility = View.VISIBLE
             return
         }
         btnPickModel.visibility = View.GONE
+        btnDownloadModel.visibility = View.GONE
         statusText.text = getString(R.string.status_loading)
         lifecycleScope.launch {
             try {
@@ -898,6 +911,7 @@ class MainActivity : AppCompatActivity() {
                 statusText.text = "Error al cargar el modelo: ${e.message}"
                 btnPickModel.visibility = View.VISIBLE
                 btnPickModel.isEnabled = true
+                btnDownloadModel.visibility = View.VISIBLE
             }
         }
     }
@@ -1063,6 +1077,10 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private const val SAMPLE_RATE_GRABACION = 16000
+
+        // Enlace directo (Hugging Face, repo público Apache 2.0, 2,59 GB).
+        private const val MODEL_DOWNLOAD_URL =
+            "https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm"
         private const val KEY_HISTORY = "transcript_history"
         private const val KEY_ASSISTANT_HISTORY = "assistant_history"
         private const val KEY_LAST_CRASH = "last_crash"

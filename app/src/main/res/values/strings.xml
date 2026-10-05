@@ -1,7 +1,8 @@
 <resources>
     <string name="app_name">SimulTrans</string>
     <string name="status_loading">Cargando el modelo Gemma 4 E2B…</string>
-    <string name="status_model_missing">No se encontró el modelo en el dispositivo.\n\nDescarga el archivo .litertlm con el navegador del móvil y pulsa "Elegir archivo del modelo" para seleccionarlo.</string>
+    <string name="status_model_missing">Falta el modelo de IA (2,6 GB, se descarga una sola vez).\n\n1) Pulsa "Descargar el modelo" y guarda el archivo con el navegador (mejor con Wi-Fi).\n2) Vuelve aquí y pulsa "Elegir archivo del modelo" para seleccionarlo. Después la app funciona sin conexión.</string>
+    <string name="btn_download_model">⬇ Descargar el modelo (2,6 GB)</string>
     <string name="status_ready">Listo. Pulsa un idioma y habla.</string>
     <string name="btn_pick_model">📂 Elegir archivo del modelo</string>
     <string name="status_copying_model">Copiando modelo… puede tardar unos minutos</string>
