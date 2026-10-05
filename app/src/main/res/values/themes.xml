@@ -1,6 +1,8 @@
 <resources>
     <style name="Theme.SimulTrans" parent="Theme.MaterialComponents.DayNight.NoActionBar">
         <item name="colorPrimary">@color/english_color</item>
+        <!-- Texto blanco sobre el azul también en modo oscuro (por defecto sería negro). -->
+        <item name="colorOnPrimary">@android:color/white</item>
         <item name="android:windowBackground">@color/background</item>
     </style>
 </resources>

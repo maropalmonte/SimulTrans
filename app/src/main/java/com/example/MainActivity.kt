@@ -69,7 +69,7 @@ import kotlin.system.exitProcess
  *
  * El modelo NO se incluye en el APK (pesa varios GB). Se descarga con el
  * navegador del propio móvil desde Hugging Face y se selecciona dentro de
- * la app con el botón "Elegir archivo del modelo".
+ * la app con el botón "Paso 2: elegir el archivo descargado".
  *
  * El botón "Descargar el modelo" abre en el navegador el enlace directo
  * de MODEL_DOWNLOAD_URL (repositorio público, licencia Apache 2.0, sin
