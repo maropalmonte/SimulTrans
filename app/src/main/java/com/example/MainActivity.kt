@@ -524,6 +524,31 @@ class MainActivity : AppCompatActivity() {
                 return@launch
             }
             try {
+                val otherIdioma = if (idioma == langA) langB else langA
+                statusText.text = getString(R.string.translating)
+                // Una sola llamada al modelo: transcribe y traduce a la vez.
+                val resultado = translationEngine.transcribeAndTranslate(
+                    archivo,
+                    idioma.displayName.lowercase(),
+                    otherIdioma.displayName.lowercase()
+                )
+                if (resultado != null) {
+                    val (original, traduccion) = resultado
+                    if (original.isBlank() || traduccion.isBlank()) {
+                        isBusy = false
+                        progressBar.visibility = View.GONE
+                        statusText.text = getString(R.string.status_ready)
+                        return@launch
+                    }
+                    addBubble(original, idioma)
+                    addBubble(traduccion, otherIdioma)
+                    speak(traduccion, otherIdioma)
+                    isBusy = false
+                    progressBar.visibility = View.GONE
+                    statusText.text = getString(R.string.status_ready)
+                    return@launch
+                }
+                // Plan B: el modelo no respetó el formato; método clásico en dos pasos.
                 val texto = translationEngine.transcribe(archivo, idioma.displayName.lowercase())
                 if (texto.isBlank()) {
                     isBusy = false
@@ -531,7 +556,6 @@ class MainActivity : AppCompatActivity() {
                     statusText.text = getString(R.string.status_ready)
                     return@launch
                 }
-                val otherIdioma = if (idioma == langA) langB else langA
                 translateAndShow(texto, idioma, otherIdioma)
             } catch (e: Exception) {
                 isBusy = false

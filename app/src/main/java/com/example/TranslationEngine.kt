@@ -152,6 +152,48 @@ class TranslationEngine(private val modelFile: File) {
             }
         }
 
+    /**
+     * Transcribe el audio y lo traduce en UNA sola llamada al modelo (en
+     * vez de dos), lo que recorta el tiempo de espera casi a la mitad.
+     * Devuelve (texto original, traducción), o null si el modelo no
+     * respetó el formato pedido; en ese caso quien llama puede recurrir
+     * a transcribe() + translate().
+     */
+    suspend fun transcribeAndTranslate(
+        audioFile: File,
+        fromLangName: String,
+        toLangName: String,
+    ): Pair<String, String>? = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            val systemInstruction = """
+                Eres un traductor profesional simultáneo.
+                El audio adjunto está hablado en $fromLangName.
+                Responde SIEMPRE exactamente con estas dos líneas y nada más:
+                ORIGINAL: <transcripción exacta de lo dicho, en $fromLangName>
+                TRADUCCION: <traducción al $toLangName, sin explicaciones ni comillas>
+                Si no se oye nada inteligible, responde únicamente: ORIGINAL:
+            """.trimIndent()
+            val conversationConfig = ConversationConfig(
+                systemInstruction = Contents.of(systemInstruction),
+            )
+            val respuesta = engine.createConversation(conversationConfig).use { conversation ->
+                val contents = Contents.of(Content.AudioFile(audioFile.absolutePath))
+                conversation.sendMessage(contents).toString().trim()
+            }
+            val regex = Regex(
+                "ORIGINAL:\\s*(.*?)\\s*TRADUCCION:\\s*(.*)",
+                setOf(RegexOption.DOT_MATCHES_ALL, RegexOption.IGNORE_CASE)
+            )
+            val m = regex.find(respuesta)
+            when {
+                m != null -> Pair(m.groupValues[1].trim(), m.groupValues[2].trim())
+                // Sin nada inteligible: solo "ORIGINAL:" vacío.
+                respuesta.replace("ORIGINAL:", "", ignoreCase = true).isBlank() -> Pair("", "")
+                else -> null
+            }
+        }
+    }
+
     fun close() {
         assistantConversation?.close()
         if (::engine.isInitialized) {
