@@ -35,6 +35,18 @@ class TranslationEngine(private val modelFile: File) {
      */
     private var assistantConversation: Conversation? = null
 
+    private companion object {
+        /** Estilo de respuesta del Asistente IA: breve por defecto, extenso solo si se conversa. */
+        const val INSTRUCCION_ASISTENTE = """
+Eres un asistente útil. Responde en el mismo idioma en que te escribe el usuario.
+Sé conciso y directo por defecto: responde en pocas frases (normalmente 1 a 3), sin
+introducciones, sin repetir la pregunta y sin listas largas, salvo que te pidan detalle.
+Excepción: si el usuario quiere conversar o practicar un idioma para mejorar su
+vocabulario, mantén una conversación natural y más extensa, con vocabulario útil, y
+corrige con amabilidad sus errores si los hay.
+No uses formato markdown (asteriscos, almohadillas, viñetas): tus respuestas se leen en voz alta."""
+    }
+
     suspend fun initialize() = withContext(Dispatchers.IO) {
         val config = EngineConfig(
             modelPath = modelFile.absolutePath,
@@ -105,7 +117,9 @@ class TranslationEngine(private val modelFile: File) {
         withContext(Dispatchers.IO) {
             mutex.withLock {
                 val conversation = assistantConversation
-                    ?: engine.createConversation().also { assistantConversation = it }
+                    ?: engine.createConversation(
+                        ConversationConfig(systemInstruction = Contents.of(INSTRUCCION_ASISTENTE))
+                    ).also { assistantConversation = it }
                 val partes = mutableListOf<Content>()
                 partes.add(Content.Text(prompt))
                 images.forEach { img -> partes.add(Content.ImageFile(img.absolutePath)) }
