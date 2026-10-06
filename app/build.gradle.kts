@@ -35,7 +35,8 @@ android {
             if (!keystorePath.isNullOrBlank()) {
                 storeFile = file(keystorePath)
                 storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
-                keyAlias = System.getenv("ANDROID_KEY_ALIAS")
+                // El alias no es secreto: si el secreto falta o está vacío, se usa "simultrans".
+                keyAlias = System.getenv("ANDROID_KEY_ALIAS")?.takeIf { it.isNotBlank() } ?: "simultrans"
                 keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
             }
         }

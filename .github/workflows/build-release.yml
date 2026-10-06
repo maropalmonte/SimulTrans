@@ -42,6 +42,21 @@ jobs:
         run: |
           echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/release.keystore"
 
+      - name: Comprobar que el keystore y los secretos son correctos
+        run: |
+          fallo=0
+          for v in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_PASSWORD; do
+            if [ -z "${!v}" ]; then echo "::error::Falta el secreto $v (o está vacío)"; fallo=1; fi
+          done
+          [ "$fallo" = 1 ] && exit 1
+          echo "Tamaño del keystore: $(stat -c %s "$RUNNER_TEMP/release.keystore") bytes (debe ser 2330)"
+          keytool -list -keystore "$RUNNER_TEMP/release.keystore" -storepass "$ANDROID_KEYSTORE_PASSWORD" \
+            || { echo "::error::No se pudo abrir el keystore: revisa ANDROID_KEYSTORE_BASE64 y ANDROID_KEYSTORE_PASSWORD"; exit 1; }
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+
       - name: Compilar el Android App Bundle (.aab) firmado
         run: |
           gradle bundleRelease \
