@@ -18,7 +18,9 @@ struct Idioma: Identifiable, Hashable, Codable {
     static let arabe    = Idioma(id: "ARABE",    displayName: "Árabe",    ttsLanguageCode: "ar-SA", colorHex: "#006C35")
     static let aleman   = Idioma(id: "ALEMAN",   displayName: "Alemán",   ttsLanguageCode: "de-DE", colorHex: "#FFCE00")
 
-    static let todos: [Idioma] = [.espanol, .ingles, .frances, .italiano, .chino, .turco, .arabe, .aleman]
+    static let portugues = Idioma(id: "PORTUGUES", displayName: "Portugués", ttsLanguageCode: "pt-PT", colorHex: "#046A38")
+
+    static let todos: [Idioma] = [.espanol, .ingles, .frances, .italiano, .chino, .turco, .arabe, .aleman, .portugues]
 }
 
 /// Una burbuja de la conversación. Equivalente a las entradas que

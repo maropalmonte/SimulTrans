@@ -3,11 +3,12 @@ import UniformTypeIdentifiers
 
 struct ContentView: View {
     @State private var modelReady = false
-    @State private var statusMessage = "Elige el archivo del modelo para empezar."
+    @State private var statusMessage = "Falta el modelo de IA: gemma-4-E2B-it.litertlm (2,6 GB, se descarga una sola vez).\n\n1) Pulsa «Paso 1» y descarga el archivo con Safari (mejor con Wi-Fi).\n2) Vuelve aquí y pulsa «Paso 2» para elegirlo desde la app Archivos. Después la app funciona sin conexión."
     @State private var showingPicker = false
     @State private var engine: TranslationEngine?
 
     private let modelFileName = "gemma-4-E2B-it.litertlm"
+    private let modelDownloadURL = URL(string: "https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm")!
     private var modelPath: String {
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         return docs.appendingPathComponent(modelFileName).path
@@ -16,7 +17,19 @@ struct ContentView: View {
     var body: some View {
         Group {
             if modelReady, let engine {
-                TranslatorView(engine: engine)
+                VStack(spacing: 0) {
+                    TabView {
+                        TranslatorView(engine: engine)
+                            .tabItem { Label("Traductor", systemImage: "globe") }
+                        AssistantView(engine: engine)
+                            .tabItem { Label("Asistente IA", systemImage: "sparkles") }
+                    }
+                    Link(destination: URL(string: "https://maropal.es")!) {
+                        Text("Gestión y Software Maropal · maropal.es")
+                            .font(.caption2)
+                            .padding(6)
+                    }
+                }
             } else {
                 VStack(spacing: 16) {
                     Text("SimulTrans")
@@ -26,10 +39,24 @@ struct ContentView: View {
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal)
-                    Button("Elegir archivo del modelo") {
-                        showingPicker = true
+                    Link(destination: modelDownloadURL) {
+                        Text("📥 Paso 1: descargar el modelo (2,6 GB)")
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color(hex: "#C60B1E"))
+                            .foregroundColor(.white)
+                            .cornerRadius(10)
                     }
-                    .buttonStyle(.borderedProminent)
+                    Button {
+                        showingPicker = true
+                    } label: {
+                        Text("📂 Paso 2: elegir el archivo descargado")
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color(hex: "#00247D"))
+                            .foregroundColor(.white)
+                            .cornerRadius(10)
+                    }
                 }
                 .padding()
             }

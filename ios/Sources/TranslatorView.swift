@@ -167,32 +167,41 @@ struct TranslatorView: View {
         grabando = false
         idiomaGrabando = nil
         isBusy = true
-        statusMessage = "Transcribiendo..."
+        statusMessage = "Traduciendo..."
 
         let rutaAudio = urlGrabacionTemporal().path
         let otro = idioma == langA ? langB : langA
 
         Task {
             do {
-                let texto = try await engine.transcribe(
-                    audioPath: rutaAudio,
-                    languageName: idioma.displayName.lowercased()
-                )
-                if texto.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    isBusy = false
-                    statusMessage = "Listo."
-                    return
+                let desde = idioma.displayName.lowercased()
+                let hacia = otro.displayName.lowercased()
+                // Camino rápido: transcribir y traducir en una sola llamada.
+                if let par = try await engine.transcribeAndTranslate(
+                    audioPath: rutaAudio, fromLangName: desde, toLangName: hacia
+                ) {
+                    if par.original.isEmpty {
+                        isBusy = false
+                        statusMessage = "Listo."
+                        return
+                    }
+                    agregarMensaje(texto: par.original, idioma: idioma, alineadoIzquierda: idioma == langA)
+                    agregarMensaje(texto: par.traduccion, idioma: otro, alineadoIzquierda: otro == langA)
+                    hablar(par.traduccion, idioma: otro)
+                } else {
+                    // Respaldo: dos pasos (transcribir y luego traducir).
+                    let texto = try await engine.transcribe(audioPath: rutaAudio, languageName: desde)
+                    if texto.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        isBusy = false
+                        statusMessage = "Listo."
+                        return
+                    }
+                    agregarMensaje(texto: texto, idioma: idioma, alineadoIzquierda: idioma == langA)
+                    statusMessage = "Traduciendo..."
+                    let traduccion = try await engine.translate(text: texto, fromLangName: desde, toLangName: hacia)
+                    agregarMensaje(texto: traduccion, idioma: otro, alineadoIzquierda: otro == langA)
+                    hablar(traduccion, idioma: otro)
                 }
-                agregarMensaje(texto: texto, idioma: idioma, alineadoIzquierda: idioma == langA)
-
-                statusMessage = "Traduciendo..."
-                let traduccion = try await engine.translate(
-                    text: texto,
-                    fromLangName: idioma.displayName.lowercased(),
-                    toLangName: otro.displayName.lowercased()
-                )
-                agregarMensaje(texto: traduccion, idioma: otro, alineadoIzquierda: otro == langA)
-                hablar(traduccion, idioma: otro)
             } catch {
                 statusMessage = "Error: \(error.localizedDescription)"
             }

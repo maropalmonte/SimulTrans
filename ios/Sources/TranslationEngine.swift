@@ -13,6 +13,17 @@ import LiteRTLM
 actor TranslationEngine {
     private var engine: Engine?
     private let modelPath: String
+    /// Conversación persistente del Asistente IA: mantiene el contexto entre
+    /// preguntas hasta que el usuario borra la conversación.
+    private var assistantConversation: Conversation?
+
+    private static let instruccionAsistente = """
+    Eres un asistente amable y útil dentro de una app de traducción.
+    Responde siempre en el mismo idioma en que te habla el usuario.
+    Sé conciso: por defecto responde en 1 a 3 frases, sin rodeos.
+    Solo te extiendes y conversas con más detalle si el usuario quiere practicar un idioma o pide más explicación; en ese caso corrige sus errores con amabilidad.
+    No uses markdown, listas con símbolos ni asteriscos: tus respuestas se leen en voz alta.
+    """
 
     init(modelPath: String) {
         self.modelPath = modelPath
@@ -77,5 +88,76 @@ actor TranslationEngine {
         let conversation = try await engine.createConversation()
         let response = try await conversation.sendMessage(message)
         return response.toString.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func requireEngine() throws -> Engine {
+        guard let engine else {
+            throw NSError(
+                domain: "TranslationEngine",
+                code: 1,
+                userInfo: [NSLocalizedDescriptionKey: "El motor no está inicializado"]
+            )
+        }
+        return engine
+    }
+
+    /// Transcribe y traduce en una sola llamada al modelo (más rápido que
+    /// transcribir y traducir por separado). Devuelve ("","") si el audio no
+    /// contiene voz y nil si el modelo no respeta el formato esperado, para
+    /// que el llamador use el camino de dos pasos.
+    func transcribeAndTranslate(audioPath: String, fromLangName: String, toLangName: String) async throws -> (original: String, traduccion: String)? {
+        let engine = try requireEngine()
+        let instruccion = """
+        Eres un traductor profesional simultáneo.
+        Recibirás un audio hablado en \(fromLangName).
+        Responde EXACTAMENTE con dos líneas y nada más:
+        ORIGINAL: <transcripción literal del audio en \(fromLangName)>
+        TRADUCCION: <traducción al \(toLangName)>
+        Si el audio no contiene voz, responde solo con: ORIGINAL:
+        """
+        let config = ConversationConfig(systemMessage: Message(instruccion))
+        let conversation = try await engine.createConversation(with: config)
+        let message = Message(contents: [
+            Content.audioFile(audioPath),
+            Content.text("Transcribe y traduce este audio.")
+        ])
+        let response = try await conversation.sendMessage(message)
+        let texto = response.toString.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        let patron = "ORIGINAL:\\s*(.*?)\\s*TRADUCCION:\\s*(.*)"
+        if let regex = try? NSRegularExpression(pattern: patron, options: [.dotMatchesLineSeparators, .caseInsensitive]),
+           let m = regex.firstMatch(in: texto, range: NSRange(texto.startIndex..., in: texto)),
+           let r1 = Range(m.range(at: 1), in: texto),
+           let r2 = Range(m.range(at: 2), in: texto) {
+            let original = String(texto[r1]).trimmingCharacters(in: .whitespacesAndNewlines)
+            let traduccion = String(texto[r2]).trimmingCharacters(in: .whitespacesAndNewlines)
+            if original.isEmpty || traduccion.isEmpty { return ("", "") }
+            return (original, traduccion)
+        }
+        if texto.uppercased().hasPrefix("ORIGINAL:") &&
+            texto.dropFirst("ORIGINAL:".count).trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return ("", "")
+        }
+        return nil
+    }
+
+    /// Pregunta al Asistente IA conservando el contexto de la conversación.
+    /// `imagePaths` son rutas de imágenes adjuntas (jpg/png).
+    func askWithContext(prompt: String, imagePaths: [String] = []) async throws -> String {
+        let engine = try requireEngine()
+        if assistantConversation == nil {
+            let config = ConversationConfig(systemMessage: Message(Self.instruccionAsistente))
+            assistantConversation = try await engine.createConversation(with: config)
+        }
+        guard let conversation = assistantConversation else { return "" }
+        var contenidos: [Content] = imagePaths.map { Content.imageFile($0) }
+        contenidos.append(Content.text(prompt))
+        let response = try await conversation.sendMessage(Message(contents: contenidos))
+        return response.toString.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// Olvida el contexto del Asistente (al borrar la conversación).
+    func resetAssistantConversation() {
+        assistantConversation = nil
     }
 }

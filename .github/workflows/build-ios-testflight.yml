@@ -1,0 +1,93 @@
+name: iOS TestFlight
+
+# Se lanza a mano (Actions > "iOS TestFlight" > Run workflow). Firma con
+# firma automática usando una clave de la API de App Store Connect y sube
+# el .ipa a TestFlight. Requiere cuenta de pago del Apple Developer Program
+# y estos Repository Secrets:
+#   APPSTORE_KEY_ID, APPSTORE_ISSUER_ID, APPSTORE_KEY_P8 (contenido del .p8),
+#   APPLE_TEAM_ID
+on:
+  workflow_dispatch:
+    inputs:
+      buildNumber:
+        description: 'Número de build (entero, mayor que el anterior subido)'
+        required: true
+      versionName:
+        description: 'Versión visible (ej. 1.0)'
+        required: true
+        default: '1.0'
+
+jobs:
+  testflight:
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: ios
+    env:
+      KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
+      ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
+      TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Comprobar secretos
+        run: |
+          fallo=0
+          for v in KEY_ID ISSUER_ID TEAM_ID; do
+            if [ -z "${!v}" ]; then echo "::error::Falta el secreto asociado a $v"; fallo=1; fi
+          done
+          if [ -z "${{ secrets.APPSTORE_KEY_P8 }}" ]; then echo "::error::Falta APPSTORE_KEY_P8"; fallo=1; fi
+          [ "$fallo" = 1 ] && exit 1 || true
+
+      - name: Git LFS sin descargas innecesarias
+        run: |
+          brew install git-lfs || true
+          git lfs install --skip-smudge
+
+      - name: Instalar XcodeGen y generar proyecto
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Guardar la clave de App Store Connect
+        run: |
+          mkdir -p ~/private_keys
+          echo "${{ secrets.APPSTORE_KEY_P8 }}" > ~/private_keys/AuthKey_${KEY_ID}.p8
+
+      - name: Archivar (firma automática)
+        run: |
+          xcodebuild archive \
+            -project SimulTransIOS.xcodeproj \
+            -scheme SimulTransIOS \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath $RUNNER_TEMP/SimulTrans.xcarchive \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath ~/private_keys/AuthKey_${KEY_ID}.p8 \
+            -authenticationKeyID $KEY_ID \
+            -authenticationKeyIssuerID $ISSUER_ID \
+            DEVELOPMENT_TEAM=$TEAM_ID \
+            CODE_SIGN_STYLE=Automatic \
+            MARKETING_VERSION=${{ inputs.versionName }} \
+            CURRENT_PROJECT_VERSION=${{ inputs.buildNumber }}
+
+      - name: Exportar y subir a TestFlight
+        run: |
+          cat > $RUNNER_TEMP/ExportOptions.plist <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>upload</string>
+            <key>teamID</key><string>$TEAM_ID</string>
+            <key>signingStyle</key><string>automatic</string>
+          </dict></plist>
+          PLIST
+          xcodebuild -exportArchive \
+            -archivePath $RUNNER_TEMP/SimulTrans.xcarchive \
+            -exportOptionsPlist $RUNNER_TEMP/ExportOptions.plist \
+            -exportPath $RUNNER_TEMP/export \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath ~/private_keys/AuthKey_${KEY_ID}.p8 \
+            -authenticationKeyID $KEY_ID \
+            -authenticationKeyIssuerID $ISSUER_ID
