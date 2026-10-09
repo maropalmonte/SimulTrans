@@ -33,6 +33,8 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.ColorUtils
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -202,6 +204,17 @@ class MainActivity : AppCompatActivity() {
         mostrarUltimoCrashSiExiste()
 
         setContentView(R.layout.activity_main)
+
+        // Con targetSdk 35+ Android 15 dibuja la app de borde a borde: sin
+        // esto la barra de estado tapa el texto de arriba y la barra de
+        // navegación tapa el banner de abajo. Se añade el relleno necesario
+        // (y el del teclado, que ya no redimensiona la ventana por sí solo).
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.rootLayout)) { v, insets ->
+            val barras = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            val teclado = insets.getInsets(WindowInsetsCompat.Type.ime())
+            v.setPadding(barras.left, barras.top, barras.right, maxOf(barras.bottom, teclado.bottom))
+            WindowInsetsCompat.CONSUMED
+        }
 
         statusText = findViewById(R.id.statusText)
         progressBar = findViewById(R.id.progressBar)
