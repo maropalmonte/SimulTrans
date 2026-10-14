@@ -1,0 +1,96 @@
+<title>SimulTrans — Privacidad</title>
+<style>
+  :root{
+    /* Paleta: azul/grafito a juego con el logo de Maropal, sobre fondo cálido neutro */
+    --bg:#F7F8FA; --surface:#FFFFFF; --fg:#1C2430; --muted:#5B6678;
+    --accent:#1E4FA3; --accent-soft:#E7EEFB; --border:#E1E5EC;
+    --radius:14px;
+    --font-display:"Fraunces", Georgia, serif;
+    --font-body:"Inter", -apple-system, Segoe UI, sans-serif;
+    /* Layout: columna centrada única, lectura tipo documento legal */
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#14181F; --surface:#1B212B; --fg:#ECEFF4; --muted:#9AA4B5;
+      --accent:#7FA6EC; --accent-soft:#1E2A42; --border:#2A3240;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#14181F; --surface:#1B212B; --fg:#ECEFF4; --muted:#9AA4B5;
+    --accent:#7FA6EC; --accent-soft:#1E2A42; --border:#2A3240;
+    color-scheme: dark;
+  }
+  *{box-sizing:border-box}
+  body{background:var(--bg); color:var(--fg); font-family:var(--font-body); margin:0; padding-inline:16px; line-height:1.6;}
+  .wrap{max-width:720px; margin:0 auto; padding-block:48px 80px;}
+  .brand{display:flex; align-items:center; gap:10px; margin-bottom:28px;}
+  .brand .dot{width:10px; height:10px; border-radius:50%; background:var(--accent);}
+  .brand span{font-family:var(--font-body); font-weight:600; letter-spacing:.04em; text-transform:uppercase; font-size:12px; color:var(--muted);}
+  h1{font-family:var(--font-display); font-weight:600; font-size:clamp(28px,5vw,38px); line-height:1.15; margin:0 0 6px; text-wrap:balance;}
+  .updated{color:var(--muted); font-size:14px; margin-bottom:40px;}
+  h2{font-family:var(--font-display); font-weight:600; font-size:20px; margin:40px 0 12px; text-wrap:balance;}
+  p{margin:0 0 14px; color:var(--fg);}
+  p.lead{font-size:17px; color:var(--muted);}
+  ul{margin:0 0 14px; padding-left:20px;}
+  li{margin-bottom:8px;}
+  .card{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:20px 22px; margin:18px 0;}
+  .card.good::before{content:"No recoge"; display:inline-block; font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--accent); background:var(--accent-soft); padding:3px 9px; border-radius:999px; margin-bottom:10px;}
+  .contact{background:var(--accent-soft); border-radius:var(--radius); padding:20px 22px; margin-top:32px;}
+  .contact strong{color:var(--accent);}
+  a{color:var(--accent);}
+  footer{margin-top:56px; padding-top:20px; border-top:1px solid var(--border); color:var(--muted); font-size:13px;}
+  @font-face{font-family:"Fraunces"; src:local("Georgia");}
+</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600&family=Inter:wght@400;500;600&display=swap">
+
+<div class="wrap">
+  <div class="brand"><span class="dot"></span><span>Gestión y Software Maropal, S.L.</span></div>
+  <h1>Política de privacidad de SimulTrans</h1>
+  <p class="updated">Última actualización: 1 de octubre de 2026</p>
+
+  <p class="lead">SimulTrans es una app de traducción y asistente por voz que funciona enteramente en tu dispositivo. Esta página explica, en términos claros, qué ocurre con tu voz, tus textos y tus archivos cuando usas la app.</p>
+
+  <h2>Responsable del tratamiento</h2>
+  <p>Gestión y Software Maropal, S.L. — NIF B21344171 — Almonte, Huelva, España.<br>
+  Contacto: <a href="mailto:maropalmonte@gmail.com">maropalmonte@gmail.com</a></p>
+
+  <h2>Lo más importante</h2>
+  <div class="card good">
+    <p style="margin:0">SimulTrans no tiene servidores propios ni envía tu voz, tus conversaciones o tus archivos adjuntos a ningún sitio. El reconocimiento de voz, la traducción y las respuestas del Asistente IA las genera un modelo de inteligencia artificial (Gemma) que se ejecuta íntegramente dentro de tu teléfono, incluso sin conexión a internet.</p>
+  </div>
+
+  <h2>Qué datos trata la app, y dónde se quedan</h2>
+  <ul>
+    <li><strong>Audio del micrófono:</strong> se graba temporalmente para transcribirlo con el modelo de IA local; el audio no se transmite ni se guarda de forma permanente.</li>
+    <li><strong>Conversaciones de texto:</strong> el historial del Traductor y del Asistente IA se guarda únicamente en el almacenamiento privado de la app, en tu propio teléfono. Puedes borrarlo en cualquier momento con el botón "Borrar conversación".</li>
+    <li><strong>Imágenes, PDFs o documentos adjuntos:</strong> si los adjuntas al Asistente IA, se procesan localmente para responder a tu pregunta y no se suben a internet.</li>
+  </ul>
+
+  <h2>Permisos que pide la app</h2>
+  <p><strong>Micrófono:</strong> necesario para que puedas hablar en el Traductor y en el Asistente IA. Solo se usa mientras grabas activamente; puedes revocarlo en cualquier momento desde los ajustes de Android, aunque entonces no podrás dictar por voz.</p>
+
+  <h2>Lo que SimulTrans no hace</h2>
+  <ul>
+    <li>No muestra anuncios.</li>
+    <li>No usa herramientas de analítica ni de seguimiento de terceros.</li>
+    <li>No requiere crear una cuenta ni iniciar sesión.</li>
+    <li>No vende ni comparte datos con terceros, porque no recoge datos que compartir.</li>
+  </ul>
+
+  <h2>Conservación y eliminación</h2>
+  <p>Todo lo que la app guarda vive únicamente en tu dispositivo. Borrar la conversación desde la propia app, o desinstalar la app, elimina esa información por completo. Maropal no conserva copia alguna, porque nunca llega a recibirla.</p>
+
+  <h2>Menores de edad</h2>
+  <p>SimulTrans no está dirigida específicamente a menores y no recoge intencionadamente datos de ningún usuario, sea cual sea su edad, más allá de lo descrito arriba.</p>
+
+  <h2>Cambios en esta política</h2>
+  <p>Si esta política cambia, se actualizará la fecha en la parte superior de esta misma página. Te recomendamos revisarla de vez en cuando.</p>
+
+  <div class="contact">
+    <strong>¿Dudas sobre tu privacidad?</strong><br>
+    Escríbenos a <a href="mailto:maropalmonte@gmail.com">maropalmonte@gmail.com</a> y te responderemos.
+  </div>
+
+  <footer>Gestión y Software Maropal, S.L. · <a href="https://maropal.es">maropal.es</a></footer>
+</div>
