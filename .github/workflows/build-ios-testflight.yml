@@ -56,6 +56,7 @@ jobs:
 
       - name: Archivar (firma automática)
         run: |
+          set -o pipefail
           xcodebuild archive \
             -project SimulTransIOS.xcodeproj \
             -scheme SimulTransIOS \
@@ -69,7 +70,8 @@ jobs:
             DEVELOPMENT_TEAM=$TEAM_ID \
             CODE_SIGN_STYLE=Automatic \
             MARKETING_VERSION=${{ inputs.versionName }} \
-            CURRENT_PROJECT_VERSION=${{ inputs.buildNumber }}
+            CURRENT_PROJECT_VERSION=${{ inputs.buildNumber }} 2>&1 | tee $RUNNER_TEMP/archive.log \
+            || { grep -E "error:|error " $RUNNER_TEMP/archive.log | sort -u | head -15 | while read -r l; do echo "::error::${l:0:900}"; done; exit 1; }
 
       - name: Exportar y subir a TestFlight
         run: |
@@ -83,6 +85,7 @@ jobs:
             <key>signingStyle</key><string>automatic</string>
           </dict></plist>
           PLIST
+          set -o pipefail
           xcodebuild -exportArchive \
             -archivePath $RUNNER_TEMP/SimulTrans.xcarchive \
             -exportOptionsPlist $RUNNER_TEMP/ExportOptions.plist \
@@ -90,4 +93,5 @@ jobs:
             -allowProvisioningUpdates \
             -authenticationKeyPath ~/private_keys/AuthKey_${KEY_ID}.p8 \
             -authenticationKeyID $KEY_ID \
-            -authenticationKeyIssuerID $ISSUER_ID
+            -authenticationKeyIssuerID $ISSUER_ID 2>&1 | tee $RUNNER_TEMP/export.log \
+            || { grep -E "error:|error |rror Domain" $RUNNER_TEMP/export.log | sort -u | head -15 | while read -r l; do echo "::error::${l:0:900}"; done; exit 1; }
