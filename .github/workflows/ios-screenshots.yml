@@ -24,39 +24,37 @@ jobs:
           brew install xcodegen
           xcodegen generate
 
-      - name: Elegir y arrancar un simulador iPhone Pro Max (6,9")
-        run: |
-          UDID=$(xcrun simctl list devices available | grep "iPhone.*Pro Max" | tail -1 | grep -oE '[0-9A-F]{8}-([0-9A-F]{4}-){3}[0-9A-F]{12}')
-          echo "Simulador: $UDID"
-          echo "UDID=$UDID" >> $GITHUB_ENV
-          xcrun simctl boot $UDID || true
-          xcrun simctl bootstatus $UDID -b
-          xcrun simctl status_bar $UDID override --time 9:41 --batteryState charged --batteryLevel 100 --cellularBars 4 --wifiBars 3
-
-      - name: Compilar e instalar
+      - name: Compilar para el simulador
         run: |
           xcodebuild -project SimulTransIOS.xcodeproj -scheme SimulTransIOS \
-            -sdk iphonesimulator -destination "id=$UDID" \
+            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath build ARCHS=arm64 ONLY_ACTIVE_ARCH=YES build
-          xcrun simctl install $UDID build/Build/Products/Debug-iphonesimulator/SimulTransIOS.app
 
-      - name: Hacer capturas
+      - name: Hacer capturas en dos tamaños (6,9" y 6,3")
         run: |
-          mkdir -p ../capturas
           B=es.maropal.simultrans
-          xcrun simctl launch $UDID $B
-          sleep 6; xcrun simctl io $UDID screenshot ../capturas/3_descarga_modelo.png
-          xcrun simctl terminate $UDID $B
-          xcrun simctl launch $UDID $B -screenshots -tab 0
-          sleep 6; xcrun simctl io $UDID screenshot ../capturas/1_traductor.png
-          xcrun simctl terminate $UDID $B
-          xcrun simctl launch $UDID $B -screenshots -tab 1
-          sleep 6; xcrun simctl io $UDID screenshot ../capturas/2_asistente.png
-          file ../capturas/*.png
-          for f in ../capturas/*.png; do echo "::notice::$(basename $f) $(sips -g pixelWidth -g pixelHeight $f | tail -2 | awk '{print $2}' | tr '\n' 'x')"; done
-          echo "::notice::Simulador: $(xcrun simctl list devices | grep $UDID | head -1)"
+          capturar() {  # $1 = patrón del dispositivo, $2 = carpeta de salida
+            UDID=$(xcrun simctl list devices available | grep -E "$1" | tail -1 | grep -oE '[0-9A-F]{8}-([0-9A-F]{4}-){3}[0-9A-F]{12}')
+            echo "Simulador ($2): $UDID"
+            xcrun simctl boot $UDID || true
+            xcrun simctl bootstatus $UDID -b
+            xcrun simctl status_bar $UDID override --time 9:41 --batteryState charged --batteryLevel 100 --cellularBars 4 --wifiBars 3
+            xcrun simctl install $UDID build/Build/Products/Debug-iphonesimulator/SimulTransIOS.app
+            mkdir -p ../capturas/$2
+            xcrun simctl launch $UDID $B
+            sleep 6; xcrun simctl io $UDID screenshot ../capturas/$2/3_descarga_modelo.png
+            xcrun simctl terminate $UDID $B
+            xcrun simctl launch $UDID $B -screenshots -tab 0
+            sleep 6; xcrun simctl io $UDID screenshot ../capturas/$2/1_traductor.png
+            xcrun simctl terminate $UDID $B
+            xcrun simctl launch $UDID $B -screenshots -tab 1
+            sleep 6; xcrun simctl io $UDID screenshot ../capturas/$2/2_asistente.png
+            for f in ../capturas/$2/*.png; do echo "::notice::$2/$(basename $f) $(sips -g pixelWidth -g pixelHeight $f | tail -2 | awk '{print $2}' | tr '\n' 'x')"; done
+          }
+          capturar "iPhone [0-9]+ Pro Max" "pantalla_6.9_1320x2868"
+          capturar "iPhone [0-9]+ Pro \(" "pantalla_6.3_1206x2622"
 
       - uses: actions/upload-artifact@v4
         with:
           name: capturas-ios
-          path: capturas/*.png
+          path: capturas
