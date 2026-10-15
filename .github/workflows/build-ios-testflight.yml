@@ -117,14 +117,14 @@ jobs:
             CURRENT_PROJECT_VERSION=${{ inputs.buildNumber }} 2>&1 | tee $RUNNER_TEMP/archive.log \
             || { grep -E "error:|error " $RUNNER_TEMP/archive.log | sort -u | head -15 | while read -r l; do echo "::error::${l:0:900}"; done; exit 1; }
 
-      - name: Exportar y subir a TestFlight
+      - name: Exportar el .ipa firmado para distribución
         run: |
           cat > $RUNNER_TEMP/ExportOptions.plist <<PLIST
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0"><dict>
             <key>method</key><string>app-store-connect</string>
-            <key>destination</key><string>upload</string>
+            <key>destination</key><string>export</string>
             <key>teamID</key><string>$TEAM_ID</string>
             <key>signingStyle</key><string>automatic</string>
           </dict></plist>
@@ -135,7 +135,15 @@ jobs:
             -exportOptionsPlist $RUNNER_TEMP/ExportOptions.plist \
             -exportPath $RUNNER_TEMP/export \
             -allowProvisioningUpdates \
-            -authenticationKeyPath ~/private_keys/AuthKey_${KEY_ID}.p8 \
-            -authenticationKeyID $KEY_ID \
-            -authenticationKeyIssuerID $ISSUER_ID 2>&1 | tee $RUNNER_TEMP/export.log \
+            -authenticationKeyPath "$HOME/private_keys/AuthKey_${KEY_ID}.p8" \
+            -authenticationKeyID "$KEY_ID" \
+            -authenticationKeyIssuerID "$ISSUER_ID" 2>&1 | tee $RUNNER_TEMP/export.log \
             || { grep -E "error:|error |rror Domain" $RUNNER_TEMP/export.log | sort -u | head -15 | while read -r l; do echo "::error::${l:0:900}"; done; exit 1; }
+          ls -la $RUNNER_TEMP/export
+
+      - name: Subir a TestFlight con altool
+        run: |
+          IPA=$(ls $RUNNER_TEMP/export/*.ipa | head -1)
+          echo "Subiendo $IPA"
+          xcrun altool --upload-app -f "$IPA" -t ios --apiKey "$KEY_ID" --apiIssuer "$ISSUER_ID" 2>&1 | tee $RUNNER_TEMP/upload.log \
+            || { grep -iE "error|fail|ERROR ITMS" $RUNNER_TEMP/upload.log | head -15 | while read -r l; do echo "::error::${l:0:900}"; done; exit 1; }
