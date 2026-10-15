@@ -66,6 +66,42 @@ jobs:
           if openssl pkcs8 -in $f -nocrypt -topk8 -out /dev/null 2>/dev/null; then echo "La clave .p8 es válida"; else echo "::error::El contenido de APPSTORE_KEY_P8 NO es una clave .p8 válida (revisa que esté completo, con las líneas BEGIN y END)"; exit 1; fi
           if [ ${#KEY_ID} -ne 10 ]; then echo "::error::APPSTORE_KEY_ID debe tener 10 caracteres"; exit 1; fi
 
+      - name: Probar la clave directamente contra la API de App Store Connect
+        run: |
+          pip3 install --quiet --break-system-packages pyjwt cryptography 2>&1 | tail -1
+          python3 - <<'PY'
+          import os, time, json, urllib.request, urllib.error, jwt
+          kid = os.environ["KEY_ID"].strip(); iss = os.environ["ISSUER_ID"].strip()
+          key = open(os.path.expanduser(f"~/private_keys/AuthKey_{os.environ['KEY_ID']}.p8")).read()
+          def probar(con_issuer):
+              claims = {"aud": "appstoreconnect-v1", "exp": int(time.time()) + 600}
+              if con_issuer: claims["iss"] = iss
+              else: claims["sub"] = "user"
+              tok = jwt.encode(claims, key, algorithm="ES256", headers={"kid": kid, "typ": "JWT"})
+              req = urllib.request.Request("https://api.appstoreconnect.apple.com/v1/apps?limit=50", headers={"Authorization": f"Bearer {tok}"})
+              try:
+                  r = json.load(urllib.request.urlopen(req))
+                  return 200, [a["attributes"]["bundleId"] for a in r.get("data", [])]
+              except urllib.error.HTTPError as e:
+                  try: d = json.load(e); m = [x.get("detail") or x.get("title") for x in d.get("errors", [])]
+                  except Exception: m = [str(e)]
+                  return e.code, m
+          c, r = probar(True)
+          print("Clave de EQUIPO (con Issuer):", c, r)
+          if c != 200:
+              c2, r2 = probar(False)
+              print("Clave INDIVIDUAL (sin Issuer):", c2, r2)
+              if c2 == 200:
+                  print("::error::La clave es INDIVIDUAL. Crea una clave en la pestaña 'Claves de equipo' (Team Keys) con acceso Administrador.")
+              else:
+                  print(f"::error::Apple rechaza la clave ({c}): {r}")
+              raise SystemExit(1)
+          print("Apps visibles con esta clave:", r)
+          if "es.maropal.simultrans" not in r:
+              print("::error::La clave funciona, pero la app es.maropal.simultrans NO existe en App Store Connect (paso 2).")
+              raise SystemExit(1)
+          PY
+
       - name: Archivar sin firmar (la firma de distribución se hace al exportar)
         run: |
           set -o pipefail
