@@ -53,6 +53,8 @@ jobs:
           xcrun simctl launch $UDID $B -screenshots -tab 1
           sleep 6; xcrun simctl io $UDID screenshot ../capturas/2_asistente.png
           file ../capturas/*.png
+          for f in ../capturas/*.png; do echo "::notice::$(basename $f) $(sips -g pixelWidth -g pixelHeight $f | tail -2 | awk '{print $2}' | tr '\n' 'x')"; done
+          echo "::notice::Simulador: $(xcrun simctl list devices | grep $UDID | head -1)"
 
       - uses: actions/upload-artifact@v4
         with:
