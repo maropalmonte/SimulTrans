@@ -58,7 +58,8 @@ jobs:
         run: |
           f=~/private_keys/AuthKey_${KEY_ID}.p8
           echo "Longitud del Key ID: ${#KEY_ID} (debe ser 10)"
-          echo "Formato del Issuer ID (UUID): $( [[ "$ISSUER_ID" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]] && echo correcto || echo INCORRECTO )"
+          if ! [[ "$ISSUER_ID" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]]; then echo "::error::APPSTORE_ISSUER_ID no tiene formato de UUID (8-4-4-4-12 caracteres, con guiones, ${#ISSUER_ID} caracteres recibidos)"; exit 1; fi
+          echo "Issuer ID con formato correcto"
           echo "Líneas del .p8: $(wc -l < $f) (debe ser 4-5)"
           echo "Primera línea: $(head -1 $f)"
           echo "Última línea: $(tail -1 $f)"
