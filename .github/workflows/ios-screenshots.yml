@@ -1,0 +1,60 @@
+name: iOS Screenshots
+
+# Genera las capturas de la App Store en el simulador de iPhone (6,9").
+# Se descargan desde el resultado del workflow (artefacto "capturas-ios").
+on:
+  workflow_dispatch: {}
+
+jobs:
+  capturas:
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: ios
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Git LFS sin descargas innecesarias
+        run: |
+          brew install git-lfs || true
+          git lfs install --skip-smudge
+
+      - name: Generar proyecto
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Elegir y arrancar un simulador iPhone Pro Max (6,9")
+        run: |
+          UDID=$(xcrun simctl list devices available | grep "iPhone.*Pro Max" | tail -1 | grep -oE '[0-9A-F]{8}-([0-9A-F]{4}-){3}[0-9A-F]{12}')
+          echo "Simulador: $UDID"
+          echo "UDID=$UDID" >> $GITHUB_ENV
+          xcrun simctl boot $UDID || true
+          xcrun simctl bootstatus $UDID -b
+          xcrun simctl status_bar $UDID override --time 9:41 --batteryState charged --batteryLevel 100 --cellularBars 4 --wifiBars 3
+
+      - name: Compilar e instalar
+        run: |
+          xcodebuild -project SimulTransIOS.xcodeproj -scheme SimulTransIOS \
+            -sdk iphonesimulator -destination "id=$UDID" \
+            -derivedDataPath build ARCHS=arm64 ONLY_ACTIVE_ARCH=YES build
+          xcrun simctl install $UDID build/Build/Products/Debug-iphonesimulator/SimulTransIOS.app
+
+      - name: Hacer capturas
+        run: |
+          mkdir -p ../capturas
+          B=es.maropal.simultrans
+          xcrun simctl launch $UDID $B
+          sleep 6; xcrun simctl io $UDID screenshot ../capturas/3_descarga_modelo.png
+          xcrun simctl terminate $UDID $B
+          xcrun simctl launch $UDID $B -screenshots -tab 0
+          sleep 6; xcrun simctl io $UDID screenshot ../capturas/1_traductor.png
+          xcrun simctl terminate $UDID $B
+          xcrun simctl launch $UDID $B -screenshots -tab 1
+          sleep 6; xcrun simctl io $UDID screenshot ../capturas/2_asistente.png
+          file ../capturas/*.png
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: capturas-ios
+          path: capturas/*.png

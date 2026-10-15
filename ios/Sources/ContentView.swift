@@ -7,6 +7,14 @@ struct ContentView: View {
     @State private var showingPicker = false
     @State private var engine: TranslationEngine?
 
+    @State private var tab = DemoData.pestanaInicial
+
+    init() {
+        // En modo capturas se salta la carga del modelo (ver DemoData).
+        _modelReady = State(initialValue: DemoData.activo)
+        _engine = State(initialValue: DemoData.activo ? TranslationEngine(modelPath: "") : nil)
+    }
+
     private let modelFileName = "gemma-4-E2B-it.litertlm"
     private let modelDownloadURL = URL(string: "https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm")!
     private var modelPath: String {
@@ -18,11 +26,13 @@ struct ContentView: View {
         Group {
             if modelReady, let engine {
                 VStack(spacing: 0) {
-                    TabView {
+                    TabView(selection: $tab) {
                         TranslatorView(engine: engine)
                             .tabItem { Label("Traductor", systemImage: "globe") }
+                            .tag(0)
                         AssistantView(engine: engine)
                             .tabItem { Label("Asistente IA", systemImage: "sparkles") }
+                            .tag(1)
                     }
                     Link(destination: URL(string: "https://maropal.es")!) {
                         Text("Gestión y Software Maropal · maropal.es")
