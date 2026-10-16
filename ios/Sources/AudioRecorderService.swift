@@ -11,8 +11,19 @@ final class AudioRecorderService {
     private(set) var isRecording = false
 
     func startRecording(to url: URL) throws {
+        // La sesión de audio debe estar configurada y activa ANTES de acceder
+        // al micrófono; si no, en un iPhone real el formato de entrada llega
+        // inválido (0 Hz) y la app se cierra al instalar el "tap".
+        let session = AVAudioSession.sharedInstance()
+        try session.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetooth])
+        try session.setActive(true)
+
         let inputNode = engine.inputNode
+        inputNode.removeTap(onBus: 0)
         let inputFormat = inputNode.outputFormat(forBus: 0)
+        guard inputFormat.sampleRate > 0, inputFormat.channelCount > 0 else {
+            throw NSError(domain: "AudioRecorderService", code: 3, userInfo: [NSLocalizedDescriptionKey: "El micrófono no está disponible"])
+        }
 
         guard let outputFormat = AVAudioFormat(
             commonFormat: .pcmFormatInt16,
@@ -54,10 +65,6 @@ final class AudioRecorderService {
                 try? file.write(from: bufferConvertido)
             }
         }
-
-        let session = AVAudioSession.sharedInstance()
-        try session.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker])
-        try session.setActive(true)
 
         engine.prepare()
         try engine.start()
