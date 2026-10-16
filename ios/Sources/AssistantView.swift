@@ -162,6 +162,7 @@ struct AssistantView: View {
 
         Task {
             do {
+                Diagnostico.paso("Asistente: enviando pregunta al modelo")
                 let respuesta = try await engine.askWithContext(prompt: prompt, imagePaths: imagenes)
                 contextoPendiente = nil
                 agregar(respuesta, asistente: true)
@@ -246,6 +247,7 @@ struct AssistantView: View {
             let idioma = idiomaVoz.displayName.lowercased()
             Task {
                 do {
+                    Diagnostico.paso("Asistente: transcribiendo dictado")
                     let t = try await engine.transcribe(audioPath: ruta, languageName: idioma)
                     texto = t
                 } catch {
@@ -256,7 +258,9 @@ struct AssistantView: View {
             }
         } else {
             Task { @MainActor in
+                Diagnostico.paso("Asistente: pidiendo permiso de micrófono")
                 let concedido = await AVAudioApplication.requestRecordPermission()
+                Diagnostico.paso("Asistente: permiso de micrófono = \(concedido)")
                 guard concedido else { estado = "Falta el permiso de micrófono."; return }
                 do {
                     try grabador.startRecording(to: urlDictado())

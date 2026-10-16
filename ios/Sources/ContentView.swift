@@ -10,6 +10,8 @@ struct ContentView: View {
     @State private var confirmarDescarga = false
     @State private var engine: TranslationEngine?
     @State private var tab = DemoData.pestanaInicial
+    @State private var informeCierre: String? = Diagnostico.informePrevio
+    @Environment(\.scenePhase) private var scenePhase
 
     init() {
         // En modo capturas se salta la carga del modelo (ver DemoData).
@@ -58,6 +60,23 @@ struct ContentView: View {
             if !DemoData.activo && ModelStore.exists && !modelReady {
                 await cargarModelo()
             }
+        }
+        .alert("La app se cerró de forma inesperada", isPresented: Binding(
+            get: { informeCierre != nil },
+            set: { if !$0 { informeCierre = nil } }
+        )) {
+            Button("Copiar informe") {
+                UIPasteboard.general.string = informeCierre
+                informeCierre = nil
+            }
+            Button("Cerrar", role: .cancel) { informeCierre = nil }
+        } message: {
+            Text("Haz una captura de este aviso y envíasela al desarrollador:\n\n\(informeCierre ?? "")")
+        }
+        .onChange(of: scenePhase) { _, nueva in
+            if DemoData.activo { return }
+            if nueva == .background { Diagnostico.cerrarLimpio() }
+            if nueva == .active { Diagnostico.sesionActiva() }
         }
         .onChange(of: descarga.estado) { _, nuevo in
             if nuevo == .completado {
@@ -142,11 +161,14 @@ struct ContentView: View {
         statusMessage = "Cargando el modelo..."
         defer { cargando = false }
         do {
+            Diagnostico.paso("Modelo: cargando")
             let nuevoEngine = TranslationEngine(modelPath: ModelStore.path)
             try await nuevoEngine.initialize()
+            Diagnostico.paso("Modelo: cargado")
             engine = nuevoEngine
             modelReady = true
         } catch {
+            Diagnostico.paso("Modelo: error \(error.localizedDescription)")
             statusMessage = "Error al cargar el modelo: \(error.localizedDescription)"
         }
     }

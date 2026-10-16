@@ -142,7 +142,9 @@ struct TranslatorView: View {
         // Versión async: el sistema responde desde un hilo secundario y, con
         // la versión de closure, la app se cerraba al pulsar "Permitir".
         Task { @MainActor in
+            Diagnostico.paso("Traductor: pidiendo permiso de micrófono")
             let concedido = await AVAudioApplication.requestRecordPermission()
+            Diagnostico.paso("Traductor: permiso de micrófono = \(concedido)")
             if concedido {
                 iniciarGrabacion(idioma)
             } else {
@@ -153,6 +155,7 @@ struct TranslatorView: View {
 
     private func iniciarGrabacion(_ idioma: Idioma) {
         do {
+            Diagnostico.paso("Traductor: iniciando grabación")
             try grabador.startRecording(to: urlGrabacionTemporal())
             grabando = true
             idiomaGrabando = idioma
@@ -164,6 +167,7 @@ struct TranslatorView: View {
 
     private func detenerYTraducir() {
         guard let idioma = idiomaGrabando else { return }
+        Diagnostico.paso("Traductor: parando y traduciendo")
         grabador.stopRecording()
         grabando = false
         idiomaGrabando = nil
@@ -178,6 +182,7 @@ struct TranslatorView: View {
                 let desde = idioma.displayName.lowercased()
                 let hacia = otro.displayName.lowercased()
                 // Camino rápido: transcribir y traducir en una sola llamada.
+                Diagnostico.paso("Traductor: llamando al modelo")
                 if let par = try await engine.transcribeAndTranslate(
                     audioPath: rutaAudio, fromLangName: desde, toLangName: hacia
                 ) {

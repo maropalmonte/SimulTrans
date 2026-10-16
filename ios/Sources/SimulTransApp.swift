@@ -7,6 +7,8 @@ struct SimulTransApp: App {
         // la app muestra conversaciones de ejemplo y no necesita el modelo.
         if ProcessInfo.processInfo.arguments.contains("-screenshots") {
             DemoData.sembrar()
+        } else {
+            Diagnostico.iniciarSesion()
         }
     }
 
