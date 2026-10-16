@@ -255,16 +255,15 @@ struct AssistantView: View {
                 if estado.hasPrefix("Transcribiendo") { estado = "" }
             }
         } else {
-            AVAudioApplication.requestRecordPermission { concedido in
-                DispatchQueue.main.async {
-                    guard concedido else { estado = "Falta el permiso de micrófono."; return }
-                    do {
-                        try grabador.startRecording(to: urlDictado())
-                        grabando = true
-                        estado = "Grabando... toca 🔴 para terminar"
-                    } catch {
-                        estado = "No se pudo grabar: \(error.localizedDescription)"
-                    }
+            Task { @MainActor in
+                let concedido = await AVAudioApplication.requestRecordPermission()
+                guard concedido else { estado = "Falta el permiso de micrófono."; return }
+                do {
+                    try grabador.startRecording(to: urlDictado())
+                    grabando = true
+                    estado = "Grabando... toca 🔴 para terminar"
+                } catch {
+                    estado = "No se pudo grabar: \(error.localizedDescription)"
                 }
             }
         }

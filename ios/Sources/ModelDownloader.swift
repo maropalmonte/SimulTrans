@@ -99,11 +99,15 @@ final class ModelDownloader: NSObject, ObservableObject {
 
     func cancelar() {
         estado = .inactivo
-        session.getAllTasks { tareas in
+        Task {
+            // Versión async (sin closures) para no ejecutar código del hilo
+            // principal desde un hilo secundario.
+            let tareas = await session.allTasks
             for t in tareas {
-                (t as? URLSessionDownloadTask)?.cancel(byProducingResumeData: { datos in
-                    if let datos { try? datos.write(to: ModelStore.resumeURL) }
-                })
+                if let descarga = t as? URLSessionDownloadTask,
+                   let datos = await descarga.cancelByProducingResumeData() {
+                    try? datos.write(to: ModelStore.resumeURL)
+                }
             }
         }
     }

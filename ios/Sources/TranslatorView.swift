@@ -139,13 +139,14 @@ struct TranslatorView: View {
     }
 
     private func solicitarPermisoYGrabar(_ idioma: Idioma) {
-        AVAudioApplication.requestRecordPermission { concedido in
-            DispatchQueue.main.async {
-                if concedido {
-                    iniciarGrabacion(idioma)
-                } else {
-                    statusMessage = "Falta el permiso de micrófono."
-                }
+        // Versión async: el sistema responde desde un hilo secundario y, con
+        // la versión de closure, la app se cerraba al pulsar "Permitir".
+        Task { @MainActor in
+            let concedido = await AVAudioApplication.requestRecordPermission()
+            if concedido {
+                iniciarGrabacion(idioma)
+            } else {
+                statusMessage = "Falta el permiso de micrófono."
             }
         }
     }
