@@ -73,6 +73,7 @@ object BuscadorWeb {
                 }, "")
             }
         }.map { it.await() }.filter { it.second.length > 200 }.take(2)
+            .map { (n, t) -> n to mejoresFrases(t, claveTema(consulta, correcciones)) }
         if (noticias.isEmpty() && articulos.isEmpty()) return@coroutineScope null
 
         val hoy = SimpleDateFormat("yyyy-MM-dd (EEEE)", Locale.forLanguageTag(localeTag)).format(Date())
@@ -251,6 +252,33 @@ object BuscadorWeb {
         }
 
     // ------------------------------------------------- corrección de nombres
+
+    private fun claveTema(consulta: String, correcciones: Map<String, String>): List<String> =
+        (consulta.split(" ") + correcciones.values).map { normalizar(it) }
+            .filter { it.length >= 4 && it !in TEMAS_GENERICOS }.distinct()
+
+    /**
+     * De un artículo largo se quedan solo las frases que hablan del tema preguntado (las que
+     * más palabras clave contienen), para que al modelo le lleguen datos y no relleno.
+     */
+    private fun mejoresFrases(texto: String, claves: List<String>, max: Int = 1200): String {
+        val frases = texto.split(Regex("(?<=[.!?])\\s+")).map { it.trim() }.filter { it.length > 25 }
+        if (frases.isEmpty()) return texto.take(max)
+        val puntuadas = frases.mapIndexed { i, f ->
+            val n = normalizar(f)
+            val puntos = claves.count { n.contains(it) } * 3 + (if (Regex("\\d").containsMatchIn(f)) 1 else 0)
+            Triple(i, f, puntos)
+        }
+        val elegidas = puntuadas.filter { it.third > 0 }.sortedByDescending { it.third }.take(6)
+            .ifEmpty { puntuadas.take(3) }
+            .sortedBy { it.first }
+        val sb = StringBuilder()
+        for ((_, f, _) in elegidas) {
+            if (sb.length + f.length > max) break
+            sb.append(f).append(' ')
+        }
+        return sb.toString().trim().ifEmpty { texto.take(max) }
+    }
 
     private val NOMBRE = "([A-ZÁÉÍÓÚÑ][\\p{L}'-]+(?: [A-ZÁÉÍÓÚÑ][\\p{L}'-]+)?)"
     private val PATRONES_GOL = listOf(
@@ -495,7 +523,7 @@ object BuscadorWeb {
                 .map { limpiar(it.groupValues[1]) }
                 .filter { it.length > 60 }
                 .toList()
-            val texto = parrafos.joinToString(" ").take(1300)
+            val texto = parrafos.joinToString(" ").take(8000)
             if (texto.length <= 200) throw java.io.IOException("texto corto (${texto.length})")
             texto
         } finally {

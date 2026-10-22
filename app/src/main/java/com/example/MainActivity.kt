@@ -790,6 +790,8 @@ class MainActivity : AppCompatActivity() {
             try {
                 var promptConBusqueda = promptFinal
                 var huboBusqueda = false
+                var textoFuentes = ""
+                var titularesFuentes = ""
                 val preguntaPrevia = ultimaPreguntaAsistente
                 ultimaPreguntaAsistente = texto
                 var fuentes = ""
@@ -823,6 +825,8 @@ class MainActivity : AppCompatActivity() {
                         if (busqueda != null) {
                             promptConBusqueda = busqueda.contexto + "\n\n" + promptFinal
                             huboBusqueda = true
+                            textoFuentes = busqueda.contexto
+                            titularesFuentes = busqueda.fuentes
                             if (!esSeguimiento || usada == claves) ultimaConsultaUsada = usada
                             ultimaReciente = reciente
                             Log.d("SimulTrans", "Búsqueda «$usada» [v$versionApp · ${busqueda.diag}]\n${busqueda.fuentes}")
@@ -836,9 +840,30 @@ class MainActivity : AppCompatActivity() {
                     }
                     statusText.text = estadoPrevio
                 }
-                val (respuesta, reiniciada) = responderAsistente(
+                var (respuesta, reiniciada) = responderAsistente(
                     promptConBusqueda, imagenesParaEnviar, huboBusqueda, contextoPrevio != null
                 )
+                if (huboBusqueda) {
+                    // Control de calidad: lo que diga la respuesta tiene que estar en los textos encontrados.
+                    var dudosos = datosNoRespaldados(respuesta, "$textoFuentes $texto")
+                    if (dudosos.isNotEmpty()) {
+                        Log.d("SimulTrans", "Datos no respaldados: $dudosos; reintento")
+                        respuesta = translationEngine.askOneShot(
+                            promptConBusqueda + "\n\nATENCIÓN: una respuesta anterior tuya incluía datos que NO aparecen en los textos (" +
+                                dudosos.joinToString(", ") + "). Responde de nuevo usando únicamente datos que aparezcan " +
+                                "literalmente en los textos. Si los textos no contienen la respuesta, di que no la has encontrado.",
+                            emptyList()
+                        )
+                        translationEngine.resetAssistantConversation()
+                        reiniciada = true
+                        dudosos = datosNoRespaldados(respuesta, "$textoFuentes $texto")
+                        val hayNumero = dudosos.any { d -> d.all { it.isDigit() } }
+                        if (dudosos.isNotEmpty() && (hayNumero || dudosos.size >= 2)) {
+                            respuesta = "No estoy seguro de la respuesta: los textos que he encontrado no la confirman con claridad. " +
+                                "Esto es lo que dicen los titulares:\n" + titularesFuentes.lines().take(4).joinToString("\n")
+                        }
+                    }
+                }
                 addAssistantBubble(respuesta + fuentes + avisoSinRed, alignLeft = true, colorHex = "#4A90D9")
                 // La conversación viva se descartó: el próximo mensaje recibe un resumen de lo hablado.
                 if (reiniciada) pendingAssistantContext = resumenReciente(excluirUltima = false)
@@ -881,6 +906,24 @@ class MainActivity : AppCompatActivity() {
             val m = e.message ?: ""
             if (m.contains("Prefill") || m.contains("FAILED_PRECONDITION") || m.contains("capacity")) puntual() else throw e
         }
+    }
+
+    private fun normalizarTexto(s: String): String =
+        java.text.Normalizer.normalize(s.lowercase(), java.text.Normalizer.Form.NFD)
+            .replace(Regex("\\p{InCombiningDiacriticalMarks}+"), "")
+
+    /**
+     * Datos de la respuesta (cifras y nombres propios) que no aparecen en los textos de los
+     * que debía salir: señal de que el modelo se los ha inventado o los ha mezclado.
+     */
+    private fun datosNoRespaldados(respuesta: String, fuente: String): List<String> {
+        val f = normalizarTexto(fuente)
+        val malos = mutableListOf<String>()
+        Regex("\\d{2,}").findAll(respuesta).forEach { if (!f.contains(it.value)) malos.add(it.value) }
+        Regex("(?<=[a-záéíóúñ0-9,;:] )([A-ZÁÉÍÓÚÑ][\\p{L}]{2,})").findAll(respuesta).forEach { m ->
+            if (!f.contains(normalizarTexto(m.groupValues[1]))) malos.add(m.groupValues[1])
+        }
+        return malos.distinct()
     }
 
     /** Últimos mensajes del historial del asistente, recortados, para dar contexto sin llenar la memoria. */
