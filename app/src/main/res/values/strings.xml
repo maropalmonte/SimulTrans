@@ -1,13 +1,16 @@
 <resources>
     <string name="app_name">SimulTrans</string>
     <string name="status_loading">Cargando el modelo Gemma 4 E2B…</string>
-    <string name="status_model_missing">Falta el modelo de IA: gemma-4-E2B-it.litertlm (2,6 GB, se descarga una sola vez).\n\nDirección de descarga (tócala para abrirla en el navegador, o mantenla pulsada para copiarla):\nhttps://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm\n\n1) Descarga el archivo con el navegador (mejor con Wi-Fi).\n2) Vuelve aquí y pulsa "Paso 2: elegir el archivo descargado" para seleccionarlo. Después la app funciona sin conexión.</string>
-    <string name="btn_download_model">📥 Paso 1: descargar el modelo (2,6 GB)</string>
+    <string name="status_model_missing">Falta el modelo de IA (2,6 GB, se descarga una sola vez).\n\nPulsa «Descargar e instalar el modelo»: se descarga con una barra de progreso y se activa solo al terminar (mejor con Wi-Fi). Después la app funciona sin conexión.\n\nSi ya tienes el archivo gemma-4-E2B-it.litertlm en el móvil, pulsa «Ya lo tengo» y elígelo.</string>
+    <string name="btn_download_model">📥 Descargar e instalar el modelo (2,6 GB)</string>
     <string name="status_ready">Listo. Pulsa un idioma y habla.</string>
-    <string name="btn_pick_model">📂 Paso 2: elegir el archivo descargado</string>
+    <string name="btn_pick_model">📂 Ya lo tengo: elegir el archivo</string>
     <string name="status_copying_model">Copiando modelo… puede tardar unos minutos</string>
     <string name="btn_spanish">🇪🇸 Hablar en español</string>
     <string name="btn_english">🇬🇧 Speak in English</string>
     <string name="listening">Escuchando…</string>
     <string name="translating">Traduciendo…</string>
+    <string name="btn_cancel_download">✖ Cancelar descarga</string>
+    <string name="chk_web_search">🌐 Buscar en Internet (Wikipedia)</string>
+    <string name="status_searching">Buscando en Internet…</string>
 </resources>

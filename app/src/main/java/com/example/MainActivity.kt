@@ -16,6 +16,7 @@ import android.speech.tts.TextToSpeech
 import android.util.Log
 import android.view.Gravity
 import android.view.View
+import android.view.WindowManager
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.Button
@@ -36,7 +37,9 @@ import androidx.core.graphics.ColorUtils
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -69,14 +72,10 @@ import kotlin.system.exitProcess
  * stack trace se guarda en SharedPreferences y se muestra en un diálogo
  * copiable la próxima vez que se abre la app.
  *
- * El modelo NO se incluye en el APK (pesa varios GB). Se descarga con el
- * navegador del propio móvil desde Hugging Face y se selecciona dentro de
- * la app con el botón "Paso 2: elegir el archivo descargado".
- *
- * El botón "Descargar el modelo" abre en el navegador el enlace directo
- * de MODEL_DOWNLOAD_URL (repositorio público, licencia Apache 2.0, sin
- * necesidad de cuenta). La app no pide permiso de Internet: la descarga
- * la hace el navegador, no la app.
+ * El modelo NO se incluye en el APK (pesa varios GB). El botón "Descargar e
+ * instalar el modelo" lo baja de Hugging Face (repositorio público, licencia
+ * Apache 2.0, sin cuenta) con barra de progreso y lo activa al terminar; el
+ * botón "Ya lo tengo" permite elegir un archivo ya descargado.
  */
 
 /**
@@ -140,6 +139,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnAttach: Button
     private lateinit var btnMic: Button
     private lateinit var chkSpeakResponses: CheckBox
+    private lateinit var chkWebSearch: CheckBox
+    private lateinit var progressDownload: ProgressBar
+    private var descargaJob: Job? = null
     private lateinit var btnSendPrompt: Button
     private lateinit var txtAttachment: TextView
 
@@ -248,6 +250,12 @@ class MainActivity : AppCompatActivity() {
         btnAttach = findViewById(R.id.btnAttach)
         btnMic = findViewById(R.id.btnMic)
         chkSpeakResponses = findViewById(R.id.chkSpeakResponses)
+        chkWebSearch = findViewById(R.id.chkWebSearch)
+        progressDownload = findViewById(R.id.progressDownload)
+        chkWebSearch.isChecked = prefs.getBoolean("busqueda_web", true)
+        chkWebSearch.setOnCheckedChangeListener { _, marcado ->
+            prefs.edit().putBoolean("busqueda_web", marcado).apply()
+        }
         btnSendPrompt = findViewById(R.id.btnSendPrompt)
         txtAttachment = findViewById(R.id.txtAttachment)
 
@@ -285,13 +293,7 @@ class MainActivity : AppCompatActivity() {
             // "*/*" porque .litertlm no tiene un tipo MIME reconocido por Android
             pickModelFile.launch(arrayOf("*/*"))
         }
-        btnDownloadModel.setOnClickListener {
-            try {
-                startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, Uri.parse(MODEL_DOWNLOAD_URL)))
-            } catch (e: Exception) {
-                Toast.makeText(this, "No se pudo abrir el navegador", Toast.LENGTH_LONG).show()
-            }
-        }
+        btnDownloadModel.setOnClickListener { onDescargarModeloClick() }
 
         loadModel(translationEngine)
     }
@@ -762,6 +764,7 @@ class MainActivity : AppCompatActivity() {
         // aquí la Conversation en memoria del motor ya mantiene el hilo sola.
         pendingAssistantContext = null
         val imagenesParaEnviar = pendingImages
+        val contextoDocumento = pendingTextContext
         val leerRespuesta = chkSpeakResponses.isChecked
 
         promptInput.setText("")
@@ -774,10 +777,35 @@ class MainActivity : AppCompatActivity() {
         progressBar.visibility = View.VISIBLE
         btnSendPrompt.isEnabled = false
 
+        val buscarEnInternet = chkWebSearch.isChecked && imagenesParaEnviar.isEmpty() &&
+            texto.isNotBlank() && contextoDocumento == null
+        val idiomaWiki = assistantVoiceLang.speechLocale.substringBefore('-')
+
         lifecycleScope.launch {
             try {
-                val respuesta = translationEngine.askWithContext(promptFinal, imagenesParaEnviar)
-                addAssistantBubble(respuesta, alignLeft = true, colorHex = "#4A90D9")
+                var promptConBusqueda = promptFinal
+                var fuentes = ""
+                var avisoSinRed = ""
+                if (buscarEnInternet) {
+                    val estadoPrevio = statusText.text
+                    statusText.text = getString(R.string.status_searching)
+                    try {
+                        val consulta = translationEngine.consultaDeBusqueda(texto)
+                        if (consulta != null) {
+                            val resultados = BuscadorWeb.buscar(consulta, idiomaWiki)
+                            if (resultados.isNotEmpty()) {
+                                promptConBusqueda = BuscadorWeb.construirContexto(resultados) +
+                                    "\n\n" + promptFinal
+                                fuentes = "\n\nFuentes:\n" + BuscadorWeb.fuentes(resultados)
+                            }
+                        }
+                    } catch (e: Exception) {
+                        avisoSinRed = "\n\n(No se pudo consultar Internet; respondo con lo que sé.)"
+                    }
+                    statusText.text = estadoPrevio
+                }
+                val respuesta = translationEngine.askWithContext(promptConBusqueda, imagenesParaEnviar)
+                addAssistantBubble(respuesta + fuentes + avisoSinRed, alignLeft = true, colorHex = "#4A90D9")
                 if (leerRespuesta) {
                     speak(respuesta, assistantVoiceLang)
                 }
@@ -923,6 +951,71 @@ class MainActivity : AppCompatActivity() {
                 btnPickModel.isEnabled = true
             }
         }
+    }
+
+    /** Botón "Descargar e instalar": inicia la descarga, o la cancela si ya está en curso. */
+    private fun onDescargarModeloClick() {
+        if (descargaJob?.isActive == true) {
+            descargaJob?.cancel()
+            return
+        }
+        val reanudando = ModelDownloader.parcial(modelFile).exists()
+        val libre = filesDir.usableSpace
+        if (libre < ModelDownloader.ESPACIO_NECESARIO) {
+            AlertDialog.Builder(this)
+                .setTitle("Espacio insuficiente")
+                .setMessage("Hace falta al menos 3,5 GB libres y ahora hay ${"%.1f".format(libre / 1e9)} GB. Libera espacio y vuelve a intentarlo.")
+                .setPositiveButton("Entendido", null)
+                .show()
+            return
+        }
+        AlertDialog.Builder(this)
+            .setTitle(if (reanudando) "Continuar la descarga" else "Descargar el modelo")
+            .setMessage("Se descargarán 2,6 GB. Mejor con Wi-Fi. Mantén la app abierta hasta que termine; al acabar se activa sola.")
+            .setPositiveButton("Descargar") { _, _ -> empezarDescarga() }
+            .setNegativeButton("Cancelar", null)
+            .show()
+    }
+
+    private fun empezarDescarga() {
+        btnPickModel.isEnabled = false
+        btnDownloadModel.text = getString(R.string.btn_cancel_download)
+        progressDownload.progress = 0
+        progressDownload.visibility = View.VISIBLE
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        statusText.text = "Descargando el modelo…"
+
+        descargaJob = lifecycleScope.launch {
+            try {
+                ModelDownloader.descargar(modelFile) { hecho, total ->
+                    runOnUiThread {
+                        if (total > 0) {
+                            progressDownload.progress = (hecho * 1000 / total).toInt()
+                            statusText.text = "Descargando el modelo… ${hecho * 100 / total} % " +
+                                "(${"%.1f".format(hecho / 1e9)} de ${"%.1f".format(total / 1e9)} GB)"
+                        } else {
+                            statusText.text = "Descargando el modelo… ${"%.1f".format(hecho / 1e9)} GB"
+                        }
+                    }
+                }
+                finalizarDescarga()
+                loadModel(translationEngine)
+            } catch (e: CancellationException) {
+                finalizarDescarga()
+                statusText.text = "Descarga pausada. Pulsa de nuevo para continuar donde se quedó."
+                throw e
+            } catch (e: Exception) {
+                finalizarDescarga()
+                statusText.text = "No se pudo completar la descarga: ${e.message}\nPulsa de nuevo para continuar donde se quedó."
+            }
+        }
+    }
+
+    private fun finalizarDescarga() {
+        window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        progressDownload.visibility = View.GONE
+        btnDownloadModel.text = getString(R.string.btn_download_model)
+        btnPickModel.isEnabled = true
     }
 
     private fun ensureMicPermission() {
@@ -1122,8 +1215,6 @@ class MainActivity : AppCompatActivity() {
         private const val SAMPLE_RATE_GRABACION = 16000
 
         // Enlace directo (Hugging Face, repo público Apache 2.0, 2,59 GB).
-        private const val MODEL_DOWNLOAD_URL =
-            "https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm"
         private const val KEY_HISTORY = "transcript_history"
         private const val KEY_ASSISTANT_HISTORY = "assistant_history"
         private const val KEY_LAST_CRASH = "last_crash"

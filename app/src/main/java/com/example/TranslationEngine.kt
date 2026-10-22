@@ -129,6 +129,30 @@ No uses formato markdown (asteriscos, almohadillas, viñetas): tus respuestas se
         }
 
     /**
+     * Decide si la pregunta necesita datos de Internet y, en ese caso,
+     * devuelve las palabras clave para buscarla. Devuelve null si no hace
+     * falta buscar (saludos, charla, práctica de idiomas, cálculos...).
+     */
+    suspend fun consultaDeBusqueda(pregunta: String): String? = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            val instruccion = """
+                Decide si para responder a la pregunta del usuario hace falta consultar datos
+                de Internet (hechos, personas, lugares, eventos, cifras, información actual).
+                Si hace falta, responde SOLO con 2 a 6 palabras clave de búsqueda para Wikipedia,
+                en el idioma de la pregunta, sin comillas.
+                Si no hace falta (saludos, charla, práctica de idiomas, traducciones, opiniones,
+                cálculos, preguntas sobre un documento adjunto), responde SOLO: NINGUNA
+            """.trimIndent()
+            val respuesta = engine.createConversation(
+                ConversationConfig(systemInstruction = Contents.of(instruccion))
+            ).use { it.sendMessage(pregunta).toString().trim() }
+            val linea = respuesta.lineSequence().firstOrNull()?.trim()?.trim('"', '\'', '*') ?: ""
+            if (linea.isBlank() || linea.startsWith("NINGUNA", ignoreCase = true)) null
+            else linea.take(100)
+        }
+    }
+
+    /**
      * Cierra la conversación del Asistente IA para que el siguiente mensaje
      * empiece sin memoria de lo anterior. Se llama al borrar la conversación
      * desde la pantalla.

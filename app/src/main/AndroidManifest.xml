@@ -1,5 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+<uses-permission android:name="android.permission.INTERNET"/>
 <!--  Necesario desde Android 11 (API 30) para que la app pueda
          detectar si el servicio de reconocimiento de voz de Google está
          instalado y forzar su uso en vez del que Samsung/One UI elija por
