@@ -87,7 +87,7 @@ object BuscadorWeb {
         sb.append("Resultados de Internet obtenidos ahora mismo para la pregunta del usuario. ")
         sb.append("Úsalos como fuente principal si son relevantes para la pregunta (si no tienen que ver, ignóralos). Las noticias están ordenadas por relevancia, no por fecha: ")
         sb.append("fíjate en su fecha para saber si son de hoy, de ayer o más antiguas. ")
-        sb.append("Cuando respondas, incluye los datos concretos que aparezcan (nombres de jugadores, minutos, cifras, lugares). Si el usuario escribió mal un nombre (un equipo, una persona), asume que se refiere al que aparece en los resultados y no menciones el error. No inventes datos y NUNCA uses marcadores como [nombre]: ")
+        sb.append("Cuando respondas, incluye los datos concretos que aparezcan (nombres de jugadores, minutos, cifras, lugares). Si el usuario escribió mal un nombre (un equipo, una persona), asume que se refiere al que aparece en los resultados y no menciones el error. Un nombre que aparece en un titular solo es el autor de un gol si el titular o el texto lo dicen expresamente (por ejemplo "gol de X" o "X marcó"); no lo deduzcas de otros detalles como quién jugó o no. No inventes datos y NUNCA uses marcadores como [nombre]: ")
         sb.append("si los resultados no contienen la respuesta, di claramente que no la has encontrado.\n")
         if (noticias.isNotEmpty()) {
             sb.append("\nNOTICIAS:")
@@ -295,12 +295,14 @@ object BuscadorWeb {
 
     /** Palabras clave de una pregunta, sin necesidad de preguntárselo al modelo (que es lento y falla). */
     fun palabrasClave(pregunta: String): String {
+        val esGol = Regex("^(marcó|marco|metió|metio|anotó|anoto|gol|goles|goleador|goleadores)$")
         val base = pregunta.replace(Regex("[¿?¡!.,;:()\"]"), " ")
             .split(Regex("\\s+")).filter { it.isNotBlank() && it.lowercase() !in PALABRAS_VACIAS }
+            .filter { !esGol.matches(it.lowercase()) }
             .take(6).toMutableList()
         val l = pregunta.lowercase()
-        if (Regex("quedó|quedo|resultado|ganó|perdió|empat|marcador").containsMatchIn(l)) base.add("resultado")
-        if (Regex("marcó|gol|goleador|anotó").containsMatchIn(l)) base.add("goles")
+        if (Regex("marcó|marco|metió|metio|anotó|anoto|\\bgol|goleador").containsMatchIn(l)) base.add("goles")
+        else if (Regex("quedó|quedo|resultado|ganó|perdió|empat|marcador").containsMatchIn(l)) base.add("resultado")
         return base.joinToString(" ").ifBlank { pregunta.take(100) }.take(100)
     }
 
@@ -366,9 +368,9 @@ object BuscadorWeb {
         }
     }
 
-    /** Plan B: busca la dirección tras "garturlresp" en el texto bruto de la respuesta. */
+    /** Plan B: busca la dirección tras "garturlres" en el texto bruto de la respuesta. */
     private fun extraerUrlDeRespuesta(resp: String): String? {
-        val i = resp.indexOf("garturlresp")
+        val i = resp.indexOf("garturlres")
         if (i < 0) return null
         var k = resp.indexOf("http", i)
         if (k < 0) return null

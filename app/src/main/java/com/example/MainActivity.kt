@@ -808,7 +808,7 @@ class MainActivity : AppCompatActivity() {
                             (esSeguimiento && ultimaReciente)
                         val consulta = when {
                             esOrden -> ultimaConsultaUsada!!
-                            esSeguimiento -> (ultimaConsultaUsada!!.split(" ") + claves.split(" ")).distinctBy { it.lowercase() }.joinToString(" ").take(100)
+                            esSeguimiento -> (ultimaConsultaUsada!!.split(" ").filter { it.lowercase() != "resultado" } + claves.split(" ")).distinctBy { it.lowercase() }.joinToString(" ").take(100)
                             else -> claves
                         }
                         val localeBusqueda = assistantVoiceLang.speechLocale
