@@ -74,9 +74,16 @@ object BuscadorWeb {
         }.map { it.await() }.filter { it.second.length > 200 }.take(3)
         if (noticias.isEmpty() && articulos.isEmpty()) return@coroutineScope null
 
+        val correcciones = corregirNombres(consulta, noticias.map { it.titulo })
         val hoy = SimpleDateFormat("yyyy-MM-dd (EEEE)", Locale.forLanguageTag(localeTag)).format(Date())
         val sb = StringBuilder()
         sb.append("Fecha de hoy: ").append(hoy).append(".\n")
+        if (correcciones.isNotEmpty()) {
+            sb.append("La pregunta puede venir de dictado por voz y tener nombres mal transcritos. ")
+            sb.append("Correcciones probables: ")
+            sb.append(correcciones.entries.joinToString("; ") { "«${it.key}» es «${it.value}»" })
+            sb.append(". Usa siempre la forma correcta.\n")
+        }
         sb.append("Resultados de Internet obtenidos ahora mismo para la pregunta del usuario. ")
         sb.append("Úsalos como fuente principal si son relevantes para la pregunta (si no tienen que ver, ignóralos). Las noticias están ordenadas por relevancia, no por fecha: ")
         sb.append("fíjate en su fecha para saber si son de hoy, de ayer o más antiguas. ")
@@ -234,6 +241,44 @@ object BuscadorWeb {
             }
             lista.sortedBy { it.first }.map { it.second }
         }
+
+    // ------------------------------------------------- corrección de nombres
+
+    /** Distancia de edición entre dos palabras. */
+    private fun distancia(a: String, b: String): Int {
+        var prev = IntArray(b.length + 1) { it }
+        for (i in 1..a.length) {
+            val cur = IntArray(b.length + 1)
+            cur[0] = i
+            for (j in 1..b.length) {
+                cur[j] = minOf(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + if (a[i - 1] == b[j - 1]) 0 else 1)
+            }
+            prev = cur
+        }
+        return prev[b.length]
+    }
+
+    /**
+     * El dictado por voz suele transcribir mal los nombres propios ("Fellenor" por
+     * "Feyenoord"). Compara las palabras de la búsqueda con los nombres que aparecen en
+     * los titulares y propone la forma correcta cuando se parecen mucho.
+     */
+    private fun corregirNombres(consulta: String, titulares: List<String>): Map<String, String> {
+        val enTitulares = titulares.flatMap { it.split(Regex("[^\\p{L}]+")) }.filter { it.length >= 4 }
+        val conocidas = enTitulares.map { it.lowercase() }.toSet()
+        val candidatas = enTitulares.filter { it[0].isUpperCase() }.distinct()
+        val resultado = linkedMapOf<String, String>()
+        for (palabra in consulta.split(" ").filter { it.length >= 5 }) {
+            if (palabra.lowercase() in conocidas) continue
+            val mejor = candidatas
+                .filter { it[0].lowercaseChar() == palabra[0].lowercaseChar() }
+                .map { it to distancia(palabra.lowercase(), it.lowercase()) }
+                .filter { (c, d) -> d <= maxOf(2, (maxOf(c.length, palabra.length) * 0.45).toInt()) }
+                .minByOrNull { it.second }
+            if (mejor != null) resultado[palabra] = mejor.first
+        }
+        return resultado
+    }
 
     // ----------------------------------------------------------- palabras clave
 
