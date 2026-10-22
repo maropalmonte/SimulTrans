@@ -278,6 +278,13 @@ class MainActivity : AppCompatActivity() {
             val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, Uri.parse("https://maropal.es"))
             startActivity(intent)
         }
+        findViewById<TextView>(R.id.txtLicencias).setOnClickListener {
+            AlertDialog.Builder(this)
+                .setTitle(R.string.licencias_titulo)
+                .setMessage(R.string.licencias_texto)
+                .setPositiveButton("Cerrar", null)
+                .show()
+        }
         btnClearAssistantHistory.setOnClickListener { clearAssistantHistory() }
         btnStopSpeech.setOnClickListener { tts.stop() }
         btnAttach.setOnClickListener {

@@ -13,4 +13,6 @@
     <string name="btn_cancel_download">✖ Cancelar descarga</string>
     <string name="chk_web_search">🌐 Buscar en Internet</string>
     <string name="status_searching">Buscando en Internet…</string>
+    <string name="licencias_titulo">Licencias y créditos</string>
+    <string name="licencias_texto">SimulTrans usa estos componentes de código abierto:\n\n• Modelo de IA Gemma 4 E2B © Google, licencia Apache 2.0.\n• Motor LiteRT-LM © Google, licencia Apache 2.0.\n• Búsqueda en Internet del asistente: datos de Wikipedia (licencia CC BY-SA 4.0) y titulares de noticias de Bing y Google News, usados solo como contexto de la respuesta.\n\nLa licencia Apache 2.0 está en www.apache.org/licenses/LICENSE-2.0.\n\nSimulTrans es un producto de Gestión y Software Maropal, S.L. y no está desarrollado ni avalado por Google.</string>
 </resources>

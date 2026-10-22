@@ -19,6 +19,8 @@ struct ContentView: View {
         _engine = State(initialValue: DemoData.activo ? TranslationEngine(modelPath: "") : nil)
     }
 
+    @State private var mostrarLicencias = false
+
     var body: some View {
         Group {
             if modelReady, let engine {
@@ -31,8 +33,13 @@ struct ContentView: View {
                             .tabItem { Label("Asistente IA", systemImage: "sparkles") }
                             .tag(1)
                     }
-                    Link(destination: URL(string: "https://maropal.es")!) {
-                        Text("Gestión y Software Maropal · maropal.es")
+                    HStack {
+                        Link(destination: URL(string: "https://maropal.es")!) {
+                            Text("Gestión y Software Maropal · maropal.es")
+                                .font(.caption2)
+                                .padding(6)
+                        }
+                        Button("Licencias") { mostrarLicencias = true }
                             .font(.caption2)
                             .padding(6)
                     }
@@ -40,6 +47,11 @@ struct ContentView: View {
             } else {
                 pantallaModelo
             }
+        }
+        .alert("Licencias y créditos", isPresented: $mostrarLicencias) {
+            Button("Cerrar", role: .cancel) {}
+        } message: {
+            Text("SimulTrans usa estos componentes de código abierto:\n\n• Modelo de IA Gemma 4 E2B © Google, licencia Apache 2.0.\n• Motor LiteRT-LM © Google, licencia Apache 2.0.\n\nLa licencia Apache 2.0 está en www.apache.org/licenses/LICENSE-2.0.\n\nSimulTrans es un producto de Gestión y Software Maropal, S.L. y no está desarrollado ni avalado por Google.")
         }
         .fileImporter(isPresented: $showingPicker, allowedContentTypes: [.item]) { result in
             switch result {
