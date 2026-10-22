@@ -799,25 +799,28 @@ class MainActivity : AppCompatActivity() {
                     try {
                         // Las palabras clave se sacan sin el modelo (es lento y a veces se niega a buscar).
                         val claves = BuscadorWeb.palabrasClave(texto)
-                        // Si la pregunta trae un nombre propio nuevo, es un tema nuevo, no un seguimiento.
-                        val traeNombrePropio = Regex("[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+")
-                            .containsMatchIn(texto.replace(Regex("^[¿¡\\s]*\\S+"), ""))
-                        val esSeguimiento = ultimaConsultaUsada != null && texto.length < 60 && !traeNombrePropio &&
-                            Regex("\\b(ayer|hoy|anoche|este|esta|equipo|partido|él|ella|ese|esa)\\b|quién|quien|cuánto|cuanto|minuto|gol|marc", RegexOption.IGNORE_CASE).containsMatchIn(texto)
+                        // Pregunta corta o orden de buscar ("búscala por internet"): se suma el tema
+                        // anterior. Si así no hay resultados, se reintenta solo con la pregunta nueva.
+                        val esOrden = Regex("b[uú]sca(la|lo|me)?\\b|internet|mira en|consulta", RegexOption.IGNORE_CASE).containsMatchIn(texto) && texto.length < 60
+                        val esSeguimiento = ultimaConsultaUsada != null && (esOrden || texto.length < 60)
                         val reciente = Regex("ayer|hoy|anoche|esta semana|últim|reciente|ahora mismo|actual", RegexOption.IGNORE_CASE).containsMatchIn(texto) ||
                             (esSeguimiento && ultimaReciente)
-                        val consulta = if (esSeguimiento) "$ultimaConsultaUsada $claves".take(100) else claves
+                        val consulta = when {
+                            esOrden -> ultimaConsultaUsada!!
+                            esSeguimiento -> "$ultimaConsultaUsada $claves".take(100)
+                            else -> claves
+                        }
                         val localeBusqueda = assistantVoiceLang.speechLocale
                         var usada = consulta
                         var busqueda = BuscadorWeb.buscar(consulta, localeBusqueda, reciente)
-                        if (busqueda == null && consulta != texto.take(100)) {
-                            // Segundo intento con la pregunta tal cual la escribió el usuario.
-                            usada = texto.take(100)
+                        if (busqueda == null && consulta != claves) {
+                            // Segundo intento solo con las palabras de la pregunta nueva.
+                            usada = claves
                             busqueda = BuscadorWeb.buscar(usada, localeBusqueda, reciente)
                         }
                         if (busqueda != null) {
                             promptConBusqueda = busqueda.contexto + "\n\n" + promptFinal
-                            if (!esSeguimiento) ultimaConsultaUsada = claves
+                            if (!esSeguimiento || usada == claves) ultimaConsultaUsada = usada
                             ultimaReciente = reciente
                             fuentes = "\n\n🔎 Búsqueda: «$usada» [v$versionApp · ${busqueda.diag}]\n" + busqueda.fuentes
                         } else {

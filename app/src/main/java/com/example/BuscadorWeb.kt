@@ -46,7 +46,7 @@ object BuscadorWeb {
         ultimoError = ""
         val lang = localeTag.substringBefore('-')
         val pais = localeTag.substringAfter('-', lang.uppercase())
-        val bing = async(Dispatchers.IO) { intentar("Bing", { noticiasBing(consulta, localeTag) }, emptyList()) }
+        val bing = async(Dispatchers.IO) { intentar("Bing", { noticiasBing(consulta, localeTag, reciente) }, emptyList()) }
         val google = async(Dispatchers.IO) { intentar("Google", { noticiasGoogle(consulta, lang, pais, reciente) }, emptyList()) }
         val wiki = async(Dispatchers.IO) {
             intentar("Wikipedia", {
@@ -114,14 +114,19 @@ object BuscadorWeb {
 
     // ---------------------------------------------------------------- noticias
 
-    private suspend fun noticiasBing(consulta: String, locale: String): List<Noticia> =
+    private suspend fun noticiasBing(consulta: String, locale: String, reciente: Boolean): List<Noticia> =
         withContext(Dispatchers.IO) {
             val q = URLEncoder.encode(consulta, "UTF-8")
-            val cuerpo = descargar("https://www.bing.com/news/search?q=$q&format=RSS&mkt=$locale")
-            if (!cuerpo.trimStart().startsWith("<?xml") && !cuerpo.contains("<rss")) {
-                throw java.io.IOException("devolvió HTML en vez de RSS")
+            val orden = if (reciente) "&qft=sortbydate%3d%221%22" else ""
+            val cuerpo = descargar("https://www.bing.com/news/search?q=$q&format=RSS&mkt=$locale$orden")
+            if (cuerpo.trimStart().startsWith("<?xml") || cuerpo.contains("<rss")) {
+                parsearRss(cuerpo, google = false)
+            } else {
+                // Bing a veces devuelve la página web en vez del RSS: se leen las tarjetas de noticias.
+                parsearBingHtml(cuerpo).also {
+                    if (it.isEmpty()) throw java.io.IOException("Bing: HTML sin noticias reconocibles")
+                }
             }
-            parsearRss(cuerpo, google = false)
         }
 
     private suspend fun noticiasGoogle(consulta: String, lang: String, pais: String, reciente: Boolean): List<Noticia> =
@@ -178,6 +183,24 @@ object BuscadorWeb {
                 }
             }
             ev = p.next()
+        }
+        return lista
+    }
+
+    private fun parsearBingHtml(html: String): List<Noticia> {
+        val lista = mutableListOf<Noticia>()
+        val tarjeta = Regex("<div[^>]*class=['\"][^'\"]*news-card[^'\"]*['\"][^>]*>", RegexOption.IGNORE_CASE)
+        fun atributo(tag: String, nombre: String): String =
+            Regex("$nombre=(?:\"([^\"]*)\"|'([^']*)')", RegexOption.IGNORE_CASE).find(tag)
+                ?.let { it.groupValues[1].ifEmpty { it.groupValues[2] } } ?: ""
+        for (m in tarjeta.findAll(html)) {
+            val tag = m.value
+            val titulo = limpiar(atributo(tag, "data-title"))
+            val url = limpiar(atributo(tag, "data-url"))
+            val medio = limpiar(atributo(tag, "data-author"))
+            if (titulo.isNotBlank() && url.startsWith("http")) {
+                lista.add(Noticia(titulo, "", medio, "", url, false))
+            }
         }
         return lista
     }
@@ -258,37 +281,41 @@ object BuscadorWeb {
      */
     private fun resolverGoogle(enlace: String): String? {
         val id = enlace.substringAfter("/articles/", "").substringBefore('?')
-        if (id.isBlank()) return null
+        if (id.isBlank()) throw java.io.IOException("Google: enlace sin id")
         try {
             val bytes = android.util.Base64.decode(id, android.util.Base64.URL_SAFE or android.util.Base64.NO_PADDING)
             val u = Regex("https?://[\\x21-\\x7e]+").find(String(bytes, Charsets.ISO_8859_1))?.value
             if (u != null && !u.contains("news.google.com")) return u
         } catch (e: Exception) { /* sigue con el formato nuevo */ }
-        return try {
-            val pagina = descargar("https://news.google.com/rss/articles/$id?hl=en-US&gl=US&ceid=US:en")
-            val firma = Regex("data-n-a-sg=\"([^\"]+)\"").find(pagina)?.groupValues?.get(1) ?: return null
-            val marca = Regex("data-n-a-ts=\"([^\"]+)\"").find(pagina)?.groupValues?.get(1) ?: return null
-            val interno = "[\"garturlreq\",[[\"X\",\"X\",[\"X\",\"X\"],null,null,1,1,\"US:en\",null,1,null,null,null,null,null,0,1]," +
-                "\"X\",\"X\",1,[1,1,1],1,1,null,0,0,null,0],\"$id\",$marca,\"$firma\"]"
-            val peticion = "[[[\"Fbv4je\"," + JSONObject.quote(interno) + ",null,\"generic\"]]]"
-            val c = URL("https://news.google.com/_/DotsSplashUi/data/batchexecute").openConnection() as HttpURLConnection
-            try {
-                c.requestMethod = "POST"
-                c.doOutput = true
-                c.connectTimeout = 6_000
-                c.readTimeout = 6_000
-                c.setRequestProperty("User-Agent", AGENTE)
-                c.setRequestProperty("Content-Type", "application/x-www-form-urlencoded;charset=UTF-8")
-                c.outputStream.use { it.write(("f.req=" + URLEncoder.encode(peticion, "UTF-8")).toByteArray()) }
-                if (c.responseCode != 200) return null
-                val resp = c.inputStream.bufferedReader().use { it.readText() }
+        val pagina = descargar("https://news.google.com/rss/articles/$id?hl=en-US&gl=US&ceid=US:en")
+        val firma = Regex("data-n-a-sg=\"([^\"]+)\"").find(pagina)?.groupValues?.get(1)
+            ?: throw java.io.IOException("Google: sin firma")
+        val marca = Regex("data-n-a-ts=\"([^\"]+)\"").find(pagina)?.groupValues?.get(1)
+            ?: throw java.io.IOException("Google: sin marca")
+        val interno = "[\"garturlreq\",[[\"X\",\"X\",[\"X\",\"X\"],null,null,1,1,\"US:en\",null,1,null,null,null,null,null,0,1]," +
+            "\"X\",\"X\",1,[1,1,1],1,1,null,0,0,null,0],\"$id\",$marca,\"$firma\"]"
+        val peticion = "[[[\"Fbv4je\"," + JSONObject.quote(interno) + ",null,\"generic\"]]]"
+        val c = URL("https://news.google.com/_/DotsSplashUi/data/batchexecute").openConnection() as HttpURLConnection
+        try {
+            c.requestMethod = "POST"
+            c.doOutput = true
+            c.connectTimeout = 6_000
+            c.readTimeout = 6_000
+            c.setRequestProperty("User-Agent", AGENTE)
+            c.setRequestProperty("Content-Type", "application/x-www-form-urlencoded;charset=UTF-8")
+            c.outputStream.use { it.write(("f.req=" + URLEncoder.encode(peticion, "UTF-8")).toByteArray()) }
+            if (c.responseCode != 200) throw java.io.IOException("Google: batchexecute ${c.responseCode}")
+            val resp = c.inputStream.bufferedReader().use { it.readText() }
+            return try {
                 val bloque = resp.split("\n\n")[1].dropLast(2)
                 val interior = org.json.JSONArray(bloque).getJSONArray(0).getString(2)
                 org.json.JSONArray(interior).getString(1)
-            } finally {
-                c.disconnect()
+            } catch (e: Exception) {
+                throw java.io.IOException("Google: respuesta no legible")
             }
-        } catch (e: Exception) { null }
+        } finally {
+            c.disconnect()
+        }
     }
 
     /** Descarga una noticia y devuelve sus primeros párrafos como texto plano. */
@@ -300,7 +327,7 @@ object BuscadorWeb {
             c.instanceFollowRedirects = true
             c.setRequestProperty("User-Agent", AGENTE)
             c.setRequestProperty("Accept-Language", "es,en;q=0.8")
-            if (c.responseCode != 200) return@withContext ""
+            if (c.responseCode != 200) throw java.io.IOException("web ${c.responseCode}")
             val bytes = c.inputStream.use { it.readNBytesCompat(1_500_000) }
             val html = String(bytes, Charsets.UTF_8)
                 .replace(Regex("(?is)<(script|style|noscript|nav|footer|header|aside)[^>]*>.*?</\\1>"), " ")
@@ -308,7 +335,9 @@ object BuscadorWeb {
                 .map { limpiar(it.groupValues[1]) }
                 .filter { it.length > 60 }
                 .toList()
-            parrafos.joinToString(" ").take(1800)
+            val texto = parrafos.joinToString(" ").take(1800)
+            if (texto.length <= 200) throw java.io.IOException("texto corto (${texto.length})")
+            texto
         } finally {
             c.disconnect()
         }
