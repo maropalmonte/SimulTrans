@@ -143,6 +143,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var progressDownload: ProgressBar
     private var descargaJob: Job? = null
     private var ultimaPreguntaAsistente: String? = null
+    private val versionApp: String by lazy {
+        try { packageManager.getPackageInfo(packageName, 0).versionName ?: "?" } catch (e: Exception) { "?" }
+    }
     private lateinit var btnSendPrompt: Button
     private lateinit var txtAttachment: TextView
 
@@ -804,12 +807,12 @@ class MainActivity : AppCompatActivity() {
                             }
                             if (busqueda != null) {
                                 promptConBusqueda = busqueda.contexto + "\n\n" + promptFinal
-                                fuentes = "\n\n🔎 Búsqueda: «$usada»\n" + busqueda.fuentes
+                                fuentes = "\n\n🔎 Búsqueda: «$usada» [v$versionApp]\n" + busqueda.fuentes
                             } else {
                                 avisoSinRed = "\n\n🔎 Búsqueda: «$consulta» — sin resultados${if (BuscadorWeb.ultimoError.isNotBlank()) " (" + BuscadorWeb.ultimoError + ")" else ""}. Respondo con lo que sé, que puede estar desactualizado."
                             }
                         } else {
-                            fuentes = "\n\n🔎 (No he buscado en Internet para esta pregunta.)"
+                            fuentes = "\n\n🔎 (No he buscado en Internet para esta pregunta.) [v$versionApp]"
                         }
                     } catch (e: Exception) {
                         avisoSinRed = "\n\n🔎 No se pudo consultar Internet (${e.javaClass.simpleName}: ${e.message}). Respondo con lo que sé."

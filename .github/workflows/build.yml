@@ -37,7 +37,7 @@ jobs:
         # usamos Gradle instalado directamente por esta acción en el runner.
 
       - name: Compilar APK de depuración
-        run: gradle assembleDebug
+        run: gradle assembleDebug -PversionName=1.1-prueba-${GITHUB_SHA::7}
         env:
           LANG: es_ES.UTF-8
           LC_ALL: es_ES.UTF-8
