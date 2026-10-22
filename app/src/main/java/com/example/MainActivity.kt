@@ -756,7 +756,7 @@ class MainActivity : AppCompatActivity() {
         }
         addAssistantBubble(etiquetaUsuario.ifBlank { pendingAttachmentLabel ?: "" }, alignLeft = false, colorHex = "#607D8B")
 
-        val contextoPrevio = pendingAssistantContext
+        val contextoPrevio = pendingAssistantContext?.takeLast(1500)
         val promptFinal = when {
             contextoPrevio != null && pendingTextContext != null ->
                 "Esta es la conversación que tuvimos antes de cerrar la app; tenla en cuenta para entender referencias a lo ya hablado:\n\n$contextoPrevio\n\nContenido del documento adjunto:\n\n$pendingTextContext\n\nPregunta del usuario: $texto"
@@ -789,6 +789,7 @@ class MainActivity : AppCompatActivity() {
         lifecycleScope.launch {
             try {
                 var promptConBusqueda = promptFinal
+                var huboBusqueda = false
                 val preguntaPrevia = ultimaPreguntaAsistente
                 ultimaPreguntaAsistente = texto
                 var fuentes = ""
@@ -821,6 +822,7 @@ class MainActivity : AppCompatActivity() {
                         }
                         if (busqueda != null) {
                             promptConBusqueda = busqueda.contexto + "\n\n" + promptFinal
+                            huboBusqueda = true
                             if (!esSeguimiento || usada == claves) ultimaConsultaUsada = usada
                             ultimaReciente = reciente
                             Log.d("SimulTrans", "Búsqueda «$usada» [v$versionApp · ${busqueda.diag}]\n${busqueda.fuentes}")
@@ -834,8 +836,12 @@ class MainActivity : AppCompatActivity() {
                     }
                     statusText.text = estadoPrevio
                 }
-                val respuesta = translationEngine.askWithContext(promptConBusqueda, imagenesParaEnviar)
+                val (respuesta, reiniciada) = responderAsistente(
+                    promptConBusqueda, imagenesParaEnviar, huboBusqueda, contextoPrevio != null
+                )
                 addAssistantBubble(respuesta + fuentes + avisoSinRed, alignLeft = true, colorHex = "#4A90D9")
+                // La conversación viva se descartó: el próximo mensaje recibe un resumen de lo hablado.
+                if (reiniciada) pendingAssistantContext = resumenReciente(excluirUltima = false)
                 if (leerRespuesta) {
                     speak(respuesta, assistantVoiceLang)
                 }
@@ -847,6 +853,50 @@ class MainActivity : AppCompatActivity() {
                 btnSendPrompt.isEnabled = modelReady
             }
         }
+    }
+
+    /**
+     * Responde en la conversación viva del asistente, salvo que el mensaje sea muy largo
+     * (resultados de Internet) o la memoria del modelo se haya llenado: entonces usa una
+     * conversación puntual con un resumen de lo hablado y descarta la viva.
+     * Devuelve la respuesta y si la conversación viva se ha reiniciado.
+     */
+    private suspend fun responderAsistente(
+        prompt: String,
+        imagenes: List<File>,
+        conBusqueda: Boolean,
+        yaTieneContexto: Boolean,
+    ): Pair<String, Boolean> {
+        suspend fun puntual(): Pair<String, Boolean> {
+            val resumen = if (yaTieneContexto) "" else resumenReciente(excluirUltima = true)
+            val completo = if (resumen.isNotBlank()) "Conversación reciente:\n$resumen\n\n$prompt" else prompt
+            val r = translationEngine.askOneShot(completo, imagenes)
+            translationEngine.resetAssistantConversation()
+            return r to true
+        }
+        if (conBusqueda) return puntual()
+        return try {
+            translationEngine.askWithContext(prompt, imagenes) to false
+        } catch (e: Exception) {
+            val m = e.message ?: ""
+            if (m.contains("Prefill") || m.contains("FAILED_PRECONDITION") || m.contains("capacity")) puntual() else throw e
+        }
+    }
+
+    /** Últimos mensajes del historial del asistente, recortados, para dar contexto sin llenar la memoria. */
+    private fun resumenReciente(excluirUltima: Boolean): String {
+        val json = prefs.getString(KEY_ASSISTANT_HISTORY, null) ?: return ""
+        return try {
+            val arr = JSONArray(json)
+            val fin = if (excluirUltima) arr.length() - 1 else arr.length()
+            val sb = StringBuilder()
+            for (i in maxOf(0, fin - 6) until fin) {
+                val o = arr.getJSONObject(i)
+                val quien = if (o.getBoolean("left")) "Asistente" else "Usuario"
+                sb.append(quien).append(": ").append(o.getString("text").take(300)).append("\n")
+            }
+            sb.toString().trim()
+        } catch (e: Exception) { "" }
     }
 
     /** Burbuja de la conversación del Asistente IA (independiente de la del Traductor). */

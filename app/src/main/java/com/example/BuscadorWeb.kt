@@ -60,7 +60,7 @@ object BuscadorWeb {
         val vistos = mutableSetOf<String>()
         val noticias = (listaBing.take(6) + listaGoogle.take(5))
             .filter { vistos.add(it.titulo.lowercase().take(50)) }
-            .take(8)
+            .take(6)
         // Wikipedia solo como apoyo cuando hay pocas noticias (si no, mete ruido).
         val articulos = if (noticias.size >= 3) emptyList() else wiki.await().take(2)
         // Texto completo de hasta 3 noticias con enlace directo, para poder ampliar.
@@ -71,7 +71,7 @@ object BuscadorWeb {
                     if (u == null) "" else textoArticulo(u)
                 }, "")
             }
-        }.map { it.await() }.filter { it.second.length > 200 }.take(3)
+        }.map { it.await() }.filter { it.second.length > 200 }.take(2)
         if (noticias.isEmpty() && articulos.isEmpty()) return@coroutineScope null
 
         val correcciones = corregirNombres(consulta, noticias.map { it.titulo })
@@ -413,7 +413,7 @@ object BuscadorWeb {
                 .map { limpiar(it.groupValues[1]) }
                 .filter { it.length > 60 }
                 .toList()
-            val texto = parrafos.joinToString(" ").take(1800)
+            val texto = parrafos.joinToString(" ").take(1300)
             if (texto.length <= 200) throw java.io.IOException("texto corto (${texto.length})")
             texto
         } finally {

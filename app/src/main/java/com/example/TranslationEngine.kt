@@ -129,6 +129,25 @@ No uses formato markdown (asteriscos, almohadillas, viñetas): tus respuestas se
         }
 
     /**
+     * Consulta puntual del Asistente en una conversación nueva (con la misma
+     * instrucción de estilo), que se descarta al terminar. Se usa cuando el mensaje
+     * es muy largo (resultados de Internet) para no llenar la memoria de la
+     * conversación viva, que tiene un límite de tokens.
+     */
+    suspend fun askOneShot(prompt: String, images: List<File> = emptyList()): String =
+        withContext(Dispatchers.IO) {
+            mutex.withLock {
+                val partes = mutableListOf<Content>()
+                partes.add(Content.Text(prompt))
+                images.forEach { img -> partes.add(Content.ImageFile(img.absolutePath)) }
+                val contents = Contents.of(*partes.toTypedArray())
+                engine.createConversation(
+                    ConversationConfig(systemInstruction = Contents.of(INSTRUCCION_ASISTENTE))
+                ).use { it.sendMessage(contents).toString().trim() }
+            }
+        }
+
+    /**
      * Decide si la pregunta necesita datos de Internet y, en ese caso,
      * devuelve las palabras clave para buscarla. Devuelve null si no hace
      * falta buscar (saludos, charla, práctica de idiomas, cálculos...).
