@@ -782,7 +782,7 @@ class MainActivity : AppCompatActivity() {
         btnSendPrompt.isEnabled = false
 
         val buscarEnInternet = chkWebSearch.isChecked && imagenesParaEnviar.isEmpty() &&
-            texto.isNotBlank() && contextoDocumento == null
+            texto.length >= 8 && contextoDocumento == null
 
         lifecycleScope.launch {
             try {
@@ -795,24 +795,24 @@ class MainActivity : AppCompatActivity() {
                     val estadoPrevio = statusText.text
                     statusText.text = getString(R.string.status_searching)
                     try {
+                        // El modelo pequeño decide mal si "hace falta" buscar (a veces dice que
+                        // no sabe y no busca): se busca siempre, y el modelo solo elige las
+                        // palabras clave. Si no las da, se usa la pregunta tal cual.
                         val consulta = translationEngine.consultaDeBusqueda(texto, preguntaPrevia)
-                        if (consulta != null) {
-                            val localeBusqueda = assistantVoiceLang.speechLocale
-                            var usada = consulta
-                            var busqueda = BuscadorWeb.buscar(consulta, localeBusqueda)
-                            if (busqueda == null) {
-                                // Segundo intento con la pregunta tal cual la escribió el usuario.
-                                usada = texto.take(100)
-                                busqueda = BuscadorWeb.buscar(usada, localeBusqueda)
-                            }
-                            if (busqueda != null) {
-                                promptConBusqueda = busqueda.contexto + "\n\n" + promptFinal
-                                fuentes = "\n\n🔎 Búsqueda: «$usada» [v$versionApp]\n" + busqueda.fuentes
-                            } else {
-                                avisoSinRed = "\n\n🔎 Búsqueda: «$consulta» — sin resultados${if (BuscadorWeb.ultimoError.isNotBlank()) " (" + BuscadorWeb.ultimoError + ")" else ""}. Respondo con lo que sé, que puede estar desactualizado."
-                            }
+                            ?: texto.take(100)
+                        val localeBusqueda = assistantVoiceLang.speechLocale
+                        var usada = consulta
+                        var busqueda = BuscadorWeb.buscar(consulta, localeBusqueda)
+                        if (busqueda == null && consulta != texto.take(100)) {
+                            // Segundo intento con la pregunta tal cual la escribió el usuario.
+                            usada = texto.take(100)
+                            busqueda = BuscadorWeb.buscar(usada, localeBusqueda)
+                        }
+                        if (busqueda != null) {
+                            promptConBusqueda = busqueda.contexto + "\n\n" + promptFinal
+                            fuentes = "\n\n🔎 Búsqueda: «$usada» [v$versionApp]\n" + busqueda.fuentes
                         } else {
-                            fuentes = "\n\n🔎 (No he buscado en Internet para esta pregunta.) [v$versionApp]"
+                            avisoSinRed = "\n\n🔎 Búsqueda: «$usada» — sin resultados${if (BuscadorWeb.ultimoError.isNotBlank()) " (" + BuscadorWeb.ultimoError + ")" else ""}. Respondo con lo que sé, que puede estar desactualizado. [v$versionApp]"
                         }
                     } catch (e: Exception) {
                         avisoSinRed = "\n\n🔎 No se pudo consultar Internet (${e.javaClass.simpleName}: ${e.message}). Respondo con lo que sé."

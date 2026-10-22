@@ -73,7 +73,7 @@ object BuscadorWeb {
         val sb = StringBuilder()
         sb.append("Fecha de hoy: ").append(hoy).append(".\n")
         sb.append("Resultados de Internet obtenidos ahora mismo para la pregunta del usuario. ")
-        sb.append("Úsalos como fuente principal. Las noticias están ordenadas por relevancia, no por fecha: ")
+        sb.append("Úsalos como fuente principal si son relevantes para la pregunta (si no tienen que ver, ignóralos). Las noticias están ordenadas por relevancia, no por fecha: ")
         sb.append("fíjate en su fecha para saber si son de hoy, de ayer o más antiguas. ")
         sb.append("Cuando respondas, incluye los datos concretos que aparezcan (nombres de jugadores, minutos, cifras, lugares). No inventes datos y NUNCA uses marcadores como [nombre]: ")
         sb.append("si los resultados no contienen la respuesta, di claramente que no la has encontrado.\n")
