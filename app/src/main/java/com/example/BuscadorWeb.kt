@@ -85,11 +85,13 @@ object BuscadorWeb {
             sb.append(correcciones.entries.joinToString("; ") { "«${it.key}» es «${it.value}»" })
             sb.append(". Usa siempre la forma correcta.\n")
         }
-        sb.append("Resultados de Internet obtenidos ahora mismo para la pregunta del usuario. ")
-        sb.append("Úsalos como fuente principal si son relevantes para la pregunta (si no tienen que ver, ignóralos). Las noticias están ordenadas por relevancia, no por fecha: ")
-        sb.append("fíjate en su fecha para saber si son de hoy, de ayer o más antiguas. ")
-        sb.append("Cuando respondas, incluye los datos concretos que aparezcan (nombres de jugadores, minutos, cifras, lugares). Si el usuario escribió mal un nombre (un equipo, una persona), asume que se refiere al que aparece en los resultados y no menciones el error. Un nombre que aparece en un titular solo es el autor de un gol si el titular o el texto lo dicen expresamente (por ejemplo «gol de X» o «X marcó»); no lo deduzcas de otros detalles como quién jugó o no. Responde solo con lo que digan los resultados sobre el tema concreto de la pregunta: ignora los que traten de otros equipos, partidos o asuntos y nunca mezcles noticias distintas. No inventes datos y NUNCA uses marcadores como [nombre]: ")
-        sb.append("si los resultados no contienen la respuesta, di claramente que no la has encontrado.\n")
+        sb.append("INSTRUCCIONES: abajo hay varias NOTICIAS de Internet; cada una es un hecho independiente. ")
+        sb.append("1) Identifica qué noticias tratan exactamente del tema de la pregunta (mismo equipo, persona o asunto, y misma fecha). ")
+        sb.append("2) Si varias cuentan el mismo hecho, combínalas. Si cuentan hechos distintos, NO los mezcles: responde solo con el hecho por el que se pregunta, o por separado si la pregunta es ambigua. ")
+        sb.append("3) Usa solo datos que aparezcan en esas noticias (cifras, nombres, minutos). Un nombre solo es el autor de un gol si el texto lo dice expresamente. ")
+        sb.append("4) Si el usuario escribió mal un nombre, asume el que aparece en las noticias y no menciones el error. ")
+        sb.append("5) Si las noticias no contienen la respuesta, di claramente que no la has encontrado. Nunca uses marcadores como [nombre]. ")
+        sb.append("Las noticias están ordenadas por relevancia, no por fecha: fíjate en la fecha de cada una.\n")
         val pista = extraerGoleador(
             noticias.map { it.titulo + ". " + it.resumen } + textos.map { it.second },
             consulta, correcciones
@@ -98,18 +100,14 @@ object BuscadorWeb {
             sb.append("\nPISTA EXTRAÍDA AUTOMÁTICAMENTE DE LOS TEXTOS: el autor del gol que más se menciona es «")
             sb.append(pista).append("». Si preguntan quién marcó, responde con ese nombre.\n")
         }
-        if (noticias.isNotEmpty()) {
-            sb.append("\nNOTICIAS:")
-            noticias.forEach {
-                sb.append("\n- ").append(it.titulo)
-                if (it.medio.isNotBlank()) sb.append(" (").append(it.medio).append(")")
-                if (it.fecha.isNotBlank()) sb.append(" [").append(it.fecha).append("]")
-                if (it.resumen.isNotBlank()) sb.append(": ").append(it.resumen)
-            }
-        }
-        if (textos.isNotEmpty()) {
-            sb.append("\n\nTEXTO DE LAS NOTICIAS (para dar detalles):")
-            textos.forEach { (n, t) -> sb.append("\n[").append(n.titulo).append("] ").append(t) }
+        noticias.forEachIndexed { i, n ->
+            sb.append("\n\nNOTICIA ").append(i + 1)
+            if (n.medio.isNotBlank()) sb.append(" — ").append(n.medio)
+            if (n.fecha.isNotBlank()) sb.append(" — ").append(n.fecha)
+            sb.append("\nTitular: ").append(n.titulo)
+            val texto = textos.firstOrNull { it.first === n }?.second
+            if (texto != null) sb.append("\nTexto: ").append(texto)
+            else if (n.resumen.isNotBlank()) sb.append("\nResumen: ").append(n.resumen)
         }
         if (articulos.isNotEmpty()) {
             sb.append("\n\nWIKIPEDIA:")
