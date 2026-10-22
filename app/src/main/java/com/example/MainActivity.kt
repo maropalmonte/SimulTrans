@@ -791,16 +791,25 @@ class MainActivity : AppCompatActivity() {
                     try {
                         val consulta = translationEngine.consultaDeBusqueda(texto)
                         if (consulta != null) {
-                            val busqueda = BuscadorWeb.buscar(consulta, assistantVoiceLang.speechLocale)
+                            val localeBusqueda = assistantVoiceLang.speechLocale
+                            var usada = consulta
+                            var busqueda = BuscadorWeb.buscar(consulta, localeBusqueda)
+                            if (busqueda == null) {
+                                // Segundo intento con la pregunta tal cual la escribió el usuario.
+                                usada = texto.take(100)
+                                busqueda = BuscadorWeb.buscar(usada, localeBusqueda)
+                            }
                             if (busqueda != null) {
                                 promptConBusqueda = busqueda.contexto + "\n\n" + promptFinal
-                                fuentes = "\n\nFuentes:\n" + busqueda.fuentes
+                                fuentes = "\n\n🔎 Búsqueda: «$usada»\n" + busqueda.fuentes
                             } else {
-                                avisoSinRed = "\n\n(No encontré resultados en Internet; respondo con lo que sé, que puede estar desactualizado.)"
+                                avisoSinRed = "\n\n🔎 Búsqueda: «$consulta» — sin resultados${if (BuscadorWeb.ultimoError.isNotBlank()) " (" + BuscadorWeb.ultimoError + ")" else ""}. Respondo con lo que sé, que puede estar desactualizado."
                             }
+                        } else {
+                            fuentes = "\n\n🔎 (No he buscado en Internet para esta pregunta.)"
                         }
                     } catch (e: Exception) {
-                        avisoSinRed = "\n\n(No se pudo consultar Internet; respondo con lo que sé.)"
+                        avisoSinRed = "\n\n🔎 No se pudo consultar Internet (${e.javaClass.simpleName}: ${e.message}). Respondo con lo que sé."
                     }
                     statusText.text = estadoPrevio
                 }

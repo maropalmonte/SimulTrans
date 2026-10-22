@@ -141,6 +141,9 @@ No uses formato markdown (asteriscos, almohadillas, viñetas): tus respuestas se
                 lugares, cifras o cualquier información actual que puedas no conocer.
                 Si hace falta, responde SOLO con 2 a 6 palabras clave de búsqueda (nombres propios
                 y el tema, sin palabras como "ayer" u "hoy"), en el idioma de la pregunta, sin comillas.
+                Si el usuario escribe mal un nombre propio (equipo, persona, lugar), corrígelo a su
+                forma correcta y conocida (por ejemplo "Fellenor" es "Feyenoord"; la Champions es la
+                UEFA Champions League).
                 Ante la duda sobre un hecho concreto, busca.
                 Si claramente no hace falta (saludos, charla, práctica de idiomas, traducciones,
                 opiniones, cálculos, preguntas sobre un documento adjunto), responde SOLO: NINGUNA

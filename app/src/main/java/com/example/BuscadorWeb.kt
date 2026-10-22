@@ -27,6 +27,15 @@ import java.util.Locale
 object BuscadorWeb {
     private const val AGENTE = "Mozilla/5.0 (Linux; Android 14) SimulTrans/1.1 (https://empresa.maropal.es)"
 
+    /** Último fallo de red/lectura, para mostrarlo si no hay resultados. */
+    @Volatile var ultimoError: String = ""
+
+    private fun <T> intentar(origen: String, bloque: () -> T, vacio: T): T =
+        try { bloque() } catch (e: Exception) {
+            ultimoError = "$origen: ${e.javaClass.simpleName} ${e.message ?: ""}".trim()
+            vacio
+        }
+
     class Busqueda(val contexto: String, val fuentes: String)
 
     private data class Noticia(val titulo: String, val resumen: String, val medio: String, val fecha: String)
@@ -34,15 +43,18 @@ object BuscadorWeb {
 
     /** [localeTag] es el idioma elegido, p. ej. "es-ES". Devuelve null si no se encontró nada. */
     suspend fun buscar(consulta: String, localeTag: String): Busqueda? = coroutineScope {
+        ultimoError = ""
         val lang = localeTag.substringBefore('-')
         val pais = localeTag.substringAfter('-', lang.uppercase())
-        val bing = async { runCatching { noticiasBing(consulta, localeTag) }.getOrDefault(emptyList()) }
-        val google = async { runCatching { noticiasGoogle(consulta, lang, pais) }.getOrDefault(emptyList()) }
+        val bing = async { intentar("Bing", { kotlinx.coroutines.runBlocking { noticiasBing(consulta, localeTag) } }, emptyList()) }
+        val google = async { intentar("Google", { kotlinx.coroutines.runBlocking { noticiasGoogle(consulta, lang, pais) } }, emptyList()) }
         val wiki = async {
-            runCatching {
-                val r = wikipedia(consulta, lang)
-                if (r.isEmpty() && lang != "en") wikipedia(consulta, "en") else r
-            }.getOrDefault(emptyList())
+            intentar("Wikipedia", {
+                kotlinx.coroutines.runBlocking {
+                    val r = wikipedia(consulta, lang)
+                    if (r.isEmpty() && lang != "en") wikipedia(consulta, "en") else r
+                }
+            }, emptyList())
         }
 
         val vistos = mutableSetOf<String>()
