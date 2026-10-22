@@ -77,6 +77,7 @@ No uses formato markdown (asteriscos, almohadillas, viñetas): tus respuestas se
                     Traduce SIEMPRE del $fromLangName al $toLangName.
                     Responde ÚNICAMENTE con la traducción, sin explicaciones,
                     sin comillas y sin repetir el texto original.
+                    Traduce el SENTIDO, no palabra por palabra: usa la expresión natural que diría un nativo y evita traducciones literales de modismos y de verbos con varios significados (por ejemplo, «¿cómo te encuentras?» significa «¿cómo te sientes?»).
                 """.trimIndent()
                 val conversationConfig = ConversationConfig(
                     systemInstruction = Contents.of(systemInstruction),
@@ -237,6 +238,7 @@ No uses formato markdown (asteriscos, almohadillas, viñetas): tus respuestas se
                 Responde SIEMPRE exactamente con estas dos líneas y nada más:
                 ORIGINAL: <transcripción exacta de lo dicho, en $fromLangName>
                 TRADUCCION: <traducción al $toLangName, sin explicaciones ni comillas>
+                Traduce el SENTIDO, no palabra por palabra: usa la expresión natural que diría un nativo y evita traducciones literales de modismos y de verbos con varios significados (por ejemplo, «¿cómo te encuentras?» significa «¿cómo te sientes?»).
                 Si no se oye nada inteligible, responde únicamente: ORIGINAL:
             """.trimIndent()
             val conversationConfig = ConversationConfig(

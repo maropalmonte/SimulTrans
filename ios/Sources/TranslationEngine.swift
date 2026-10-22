@@ -63,6 +63,7 @@ actor TranslationEngine {
         Traduce SIEMPRE del \(fromLangName) al \(toLangName).
         Responde ÚNICAMENTE con la traducción, sin explicaciones,
         sin comillas y sin repetir el texto original.
+        Traduce el SENTIDO, no palabra por palabra: usa la expresión natural que diría un nativo y evita traducciones literales de modismos y de verbos con varios significados (por ejemplo, «¿cómo te encuentras?» significa «¿cómo te sientes?»).
         """
         let config = ConversationConfig(systemMessage: Message(systemInstruction))
         let conversation = try await engine.createConversation(with: config)
@@ -113,6 +114,7 @@ actor TranslationEngine {
         Responde EXACTAMENTE con dos líneas y nada más:
         ORIGINAL: <transcripción literal del audio en \(fromLangName)>
         TRADUCCION: <traducción al \(toLangName)>
+        Traduce el SENTIDO, no palabra por palabra: usa la expresión natural que diría un nativo y evita traducciones literales de modismos y de verbos con varios significados (por ejemplo, «¿cómo te encuentras?» significa «¿cómo te sientes?»).
         Si el audio no contiene voz, responde solo con: ORIGINAL:
         """
         let config = ConversationConfig(systemMessage: Message(instruccion))
