@@ -58,9 +58,10 @@ object BuscadorWeb {
         val listaBing = bing.await()
         val listaGoogle = google.await().let { l -> if (reciente) l.sortedByDescending { it.ms } else l }
         val vistos = mutableSetOf<String>()
-        val noticias = (listaBing.take(6) + listaGoogle.take(5))
+        val candidatas = (listaBing.take(15) + listaGoogle.take(15))
             .filter { vistos.add(it.titulo.lowercase().take(50)) }
-            .take(6)
+        val correcciones = corregirNombres(consulta, candidatas.map { it.titulo })
+        val noticias = filtrarRelevantes(candidatas, consulta, correcciones, reciente).take(6)
         // Wikipedia solo como apoyo cuando hay pocas noticias (si no, mete ruido).
         val articulos = if (noticias.size >= 3) emptyList() else wiki.await().take(2)
         // Texto completo de hasta 3 noticias con enlace directo, para poder ampliar.
@@ -74,7 +75,6 @@ object BuscadorWeb {
         }.map { it.await() }.filter { it.second.length > 200 }.take(2)
         if (noticias.isEmpty() && articulos.isEmpty()) return@coroutineScope null
 
-        val correcciones = corregirNombres(consulta, noticias.map { it.titulo })
         val hoy = SimpleDateFormat("yyyy-MM-dd (EEEE)", Locale.forLanguageTag(localeTag)).format(Date())
         val sb = StringBuilder()
         sb.append("Fecha de hoy: ").append(hoy).append(".\n")
@@ -87,7 +87,7 @@ object BuscadorWeb {
         sb.append("Resultados de Internet obtenidos ahora mismo para la pregunta del usuario. ")
         sb.append("Úsalos como fuente principal si son relevantes para la pregunta (si no tienen que ver, ignóralos). Las noticias están ordenadas por relevancia, no por fecha: ")
         sb.append("fíjate en su fecha para saber si son de hoy, de ayer o más antiguas. ")
-        sb.append("Cuando respondas, incluye los datos concretos que aparezcan (nombres de jugadores, minutos, cifras, lugares). Si el usuario escribió mal un nombre (un equipo, una persona), asume que se refiere al que aparece en los resultados y no menciones el error. Un nombre que aparece en un titular solo es el autor de un gol si el titular o el texto lo dicen expresamente (por ejemplo «gol de X» o «X marcó»); no lo deduzcas de otros detalles como quién jugó o no. No inventes datos y NUNCA uses marcadores como [nombre]: ")
+        sb.append("Cuando respondas, incluye los datos concretos que aparezcan (nombres de jugadores, minutos, cifras, lugares). Si el usuario escribió mal un nombre (un equipo, una persona), asume que se refiere al que aparece en los resultados y no menciones el error. Un nombre que aparece en un titular solo es el autor de un gol si el titular o el texto lo dicen expresamente (por ejemplo «gol de X» o «X marcó»); no lo deduzcas de otros detalles como quién jugó o no. Responde solo con lo que digan los resultados sobre el tema concreto de la pregunta: ignora los que traten de otros equipos, partidos o asuntos y nunca mezcles noticias distintas. No inventes datos y NUNCA uses marcadores como [nombre]: ")
         sb.append("si los resultados no contienen la respuesta, di claramente que no la has encontrado.\n")
         if (noticias.isNotEmpty()) {
             sb.append("\nNOTICIAS:")
@@ -243,6 +243,48 @@ object BuscadorWeb {
         }
 
     // ------------------------------------------------- corrección de nombres
+
+    private fun normalizar(s: String): String =
+        java.text.Normalizer.normalize(s.lowercase(), java.text.Normalizer.Form.NFD)
+            .replace(Regex("\\p{InCombiningDiacriticalMarks}+"), "")
+
+    private val TEMAS_GENERICOS = setOf(
+        "champions", "champion", "league", "liga", "resultado", "goles", "partido", "final",
+        "futbol", "noticias", "ultima", "hora", "europa"
+    )
+
+    /**
+     * Deja solo las noticias que hablan del tema preguntado. Sin esto, una pregunta sobre
+     * "el Betis en la Champions" trae también noticias de otros partidos de la misma jornada
+     * y el modelo las mezcla. Se exige que el titular nombre alguna palabra clave propia
+     * (no genérica) y, si se pregunta por algo reciente, que sea de los últimos 2-3 días.
+     */
+    private fun filtrarRelevantes(
+        lista: List<Noticia>, consulta: String, correcciones: Map<String, String>, reciente: Boolean
+    ): List<Noticia> {
+        val claves = (consulta.split(" ") + correcciones.values)
+            .map { normalizar(it) }
+            .filter { it.length >= 4 && it !in TEMAS_GENERICOS }
+            .distinct()
+        var r = lista
+        if (claves.isNotEmpty()) {
+            val porTema = r.filter { n ->
+                val t = normalizar(n.titulo)
+                claves.any { t.contains(it) }
+            }
+            if (porTema.isNotEmpty()) r = porTema
+        }
+        if (reciente) {
+            val limite = System.currentTimeMillis() - 60L * 3600_000L
+            val recientes = r.filter { it.ms == 0L || it.ms >= limite }
+            if (recientes.isNotEmpty()) r = recientes
+        }
+        // Las que nombran más palabras clave, primero (sin alterar el resto del orden).
+        return r.sortedByDescending { n ->
+            val t = normalizar(n.titulo)
+            claves.count { t.contains(it) }
+        }
+    }
 
     /** Distancia de edición entre dos palabras. */
     private fun distancia(a: String, b: String): Int {
