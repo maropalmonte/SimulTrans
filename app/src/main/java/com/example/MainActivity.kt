@@ -779,7 +779,6 @@ class MainActivity : AppCompatActivity() {
 
         val buscarEnInternet = chkWebSearch.isChecked && imagenesParaEnviar.isEmpty() &&
             texto.isNotBlank() && contextoDocumento == null
-        val idiomaWiki = assistantVoiceLang.speechLocale.substringBefore('-')
 
         lifecycleScope.launch {
             try {
@@ -792,11 +791,12 @@ class MainActivity : AppCompatActivity() {
                     try {
                         val consulta = translationEngine.consultaDeBusqueda(texto)
                         if (consulta != null) {
-                            val resultados = BuscadorWeb.buscar(consulta, idiomaWiki)
-                            if (resultados.isNotEmpty()) {
-                                promptConBusqueda = BuscadorWeb.construirContexto(resultados) +
-                                    "\n\n" + promptFinal
-                                fuentes = "\n\nFuentes:\n" + BuscadorWeb.fuentes(resultados)
+                            val busqueda = BuscadorWeb.buscar(consulta, assistantVoiceLang.speechLocale)
+                            if (busqueda != null) {
+                                promptConBusqueda = busqueda.contexto + "\n\n" + promptFinal
+                                fuentes = "\n\nFuentes:\n" + busqueda.fuentes
+                            } else {
+                                avisoSinRed = "\n\n(No encontré resultados en Internet; respondo con lo que sé, que puede estar desactualizado.)"
                             }
                         }
                     } catch (e: Exception) {

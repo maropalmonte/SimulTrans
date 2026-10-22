@@ -136,12 +136,14 @@ No uses formato markdown (asteriscos, almohadillas, viñetas): tus respuestas se
     suspend fun consultaDeBusqueda(pregunta: String): String? = withContext(Dispatchers.IO) {
         mutex.withLock {
             val instruccion = """
-                Decide si para responder a la pregunta del usuario hace falta consultar datos
-                de Internet (hechos, personas, lugares, eventos, cifras, información actual).
-                Si hace falta, responde SOLO con 2 a 6 palabras clave de búsqueda para Wikipedia,
-                en el idioma de la pregunta, sin comillas.
-                Si no hace falta (saludos, charla, práctica de idiomas, traducciones, opiniones,
-                cálculos, preguntas sobre un documento adjunto), responde SOLO: NINGUNA
+                Decide si para responder a la pregunta del usuario hace falta consultar Internet:
+                noticias, resultados deportivos, sucesos recientes, hechos concretos, personas,
+                lugares, cifras o cualquier información actual que puedas no conocer.
+                Si hace falta, responde SOLO con 2 a 6 palabras clave de búsqueda (nombres propios
+                y el tema, sin palabras como "ayer" u "hoy"), en el idioma de la pregunta, sin comillas.
+                Ante la duda sobre un hecho concreto, busca.
+                Si claramente no hace falta (saludos, charla, práctica de idiomas, traducciones,
+                opiniones, cálculos, preguntas sobre un documento adjunto), responde SOLO: NINGUNA
             """.trimIndent()
             val respuesta = engine.createConversation(
                 ConversationConfig(systemInstruction = Contents.of(instruccion))
