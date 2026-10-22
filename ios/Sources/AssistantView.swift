@@ -39,7 +39,7 @@ struct AssistantView: View {
             HStack {
                 Text("Idioma de voz:").font(.footnote)
                 Picker("Idioma de voz", selection: $idiomaVoz) {
-                    ForEach(Idioma.todos) { Text($0.displayName).tag($0) }
+                    ForEach(Idioma.todos) { Text($0.etiqueta).tag($0) }
                 }
                 .pickerStyle(.menu)
                 Spacer()

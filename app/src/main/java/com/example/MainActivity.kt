@@ -91,19 +91,25 @@ enum class Idioma(
     val displayName: String,
     val speechLocale: String,
     val ttsLocale: Locale,
-    val colorHex: String
+    val colorHex: String,
+    val bandera: String
 ) {
-    ESPANOL("Español", "es-ES", Locale("es", "ES"), "#C60B1E"),
-    INGLES("Inglés", "en-US", Locale.US, "#00247D"),
-    FRANCES("Francés", "fr-FR", Locale.FRANCE, "#0055A4"),
-    ITALIANO("Italiano", "it-IT", Locale.ITALY, "#008C45"),
-    CHINO("Chino", "zh-CN", Locale.SIMPLIFIED_CHINESE, "#DE2910"),
-    TURCO("Turco", "tr-TR", Locale("tr", "TR"), "#E30A17"),
-    ARABE("Árabe", "ar-SA", Locale("ar", "SA"), "#006C35"),
-    ALEMAN("Alemán", "de-DE", Locale.GERMANY, "#FFCE00"),
-    PORTUGUES("Portugués", "pt-PT", Locale("pt", "PT"), "#046A38");
+    ESPANOL("Español", "es-ES", Locale("es", "ES"), "#C60B1E", "🇪🇸"),
+    INGLES("Inglés", "en-US", Locale.US, "#00247D", "🇬🇧"),
+    FRANCES("Francés", "fr-FR", Locale.FRANCE, "#0055A4", "🇫🇷"),
+    ITALIANO("Italiano", "it-IT", Locale.ITALY, "#008C45", "🇮🇹"),
+    CHINO("Chino", "zh-CN", Locale.SIMPLIFIED_CHINESE, "#DE2910", "🇨🇳"),
+    TURCO("Turco", "tr-TR", Locale("tr", "TR"), "#E30A17", "🇹🇷"),
+    ARABE("Árabe", "ar-SA", Locale("ar", "SA"), "#006C35", "🇸🇦"),
+    ALEMAN("Alemán", "de-DE", Locale.GERMANY, "#FFCE00", "🇩🇪"),
+    PORTUGUES("Portugués", "pt-PT", Locale("pt", "PT"), "#046A38", "🇵🇹"),
+    RUMANO("Rumano", "ro-RO", Locale("ro", "RO"), "#002B7F", "🇷🇴"),
+    POLACO("Polaco", "pl-PL", Locale("pl", "PL"), "#DC143C", "🇵🇱");
 
-    override fun toString(): String = displayName
+    /** Texto para la interfaz (bandera + nombre). El prompt usa displayName. */
+    val etiqueta: String get() = "$bandera $displayName"
+
+    override fun toString(): String = etiqueta
 }
 
 class MainActivity : AppCompatActivity() {
@@ -635,7 +641,7 @@ class MainActivity : AppCompatActivity() {
 
     /** Desplegable de idioma de voz del Asistente IA (dictado + lectura). Por defecto Español. */
     private fun setupAssistantLanguageSpinner() {
-        val nombres = Idioma.values().map { it.displayName }
+        val nombres = Idioma.values().map { it.etiqueta }
         val adapter = ArrayAdapter(this, R.layout.spinner_item, nombres)
         adapter.setDropDownViewResource(R.layout.spinner_item)
         spinnerAssistantLang.adapter = adapter
@@ -851,7 +857,7 @@ class MainActivity : AppCompatActivity() {
      * los dos, se avisa y se deshabilitan los botones.
      */
     private fun setupLanguageSpinners() {
-        val nombres = Idioma.values().map { it.displayName }
+        val nombres = Idioma.values().map { it.etiqueta }
         val adapter = ArrayAdapter(this, R.layout.spinner_item, nombres)
         adapter.setDropDownViewResource(R.layout.spinner_item)
         spinnerLangA.adapter = adapter
@@ -879,8 +885,8 @@ class MainActivity : AppCompatActivity() {
 
     /** Actualiza el texto y color de los botones según langA/langB. */
     private fun updateLanguageButtons() {
-        btnLangA.text = "Hablar en ${langA.displayName}"
-        btnLangB.text = "Hablar en ${langB.displayName}"
+        btnLangA.text = "Hablar en ${langA.etiqueta}"
+        btnLangB.text = "Hablar en ${langB.etiqueta}"
         btnLangA.backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor(langA.colorHex))
         btnLangB.backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor(langB.colorHex))
 

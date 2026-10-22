@@ -8,19 +8,26 @@ struct Idioma: Identifiable, Hashable, Codable {
     let displayName: String
     let ttsLanguageCode: String // código BCP-47 para AVSpeechSynthesizer, p.ej. "es-ES"
     let colorHex: String
+    let bandera: String
 
-    static let espanol  = Idioma(id: "ESPANOL",  displayName: "Español",  ttsLanguageCode: "es-ES", colorHex: "#C60B1E")
-    static let ingles   = Idioma(id: "INGLES",   displayName: "Inglés",   ttsLanguageCode: "en-US", colorHex: "#00247D")
-    static let frances  = Idioma(id: "FRANCES",  displayName: "Francés",  ttsLanguageCode: "fr-FR", colorHex: "#0055A4")
-    static let italiano = Idioma(id: "ITALIANO", displayName: "Italiano", ttsLanguageCode: "it-IT", colorHex: "#008C45")
-    static let chino    = Idioma(id: "CHINO",    displayName: "Chino",    ttsLanguageCode: "zh-CN", colorHex: "#DE2910")
-    static let turco    = Idioma(id: "TURCO",    displayName: "Turco",    ttsLanguageCode: "tr-TR", colorHex: "#E30A17")
-    static let arabe    = Idioma(id: "ARABE",    displayName: "Árabe",    ttsLanguageCode: "ar-SA", colorHex: "#006C35")
-    static let aleman   = Idioma(id: "ALEMAN",   displayName: "Alemán",   ttsLanguageCode: "de-DE", colorHex: "#FFCE00")
+    /// Texto para la interfaz (bandera + nombre). El prompt usa displayName.
+    var etiqueta: String { "\(bandera) \(displayName)" }
 
-    static let portugues = Idioma(id: "PORTUGUES", displayName: "Portugués", ttsLanguageCode: "pt-PT", colorHex: "#046A38")
+    static let espanol  = Idioma(id: "ESPANOL",  displayName: "Español",  ttsLanguageCode: "es-ES", colorHex: "#C60B1E", bandera: "🇪🇸")
+    static let ingles   = Idioma(id: "INGLES",   displayName: "Inglés",   ttsLanguageCode: "en-US", colorHex: "#00247D", bandera: "🇬🇧")
+    static let frances  = Idioma(id: "FRANCES",  displayName: "Francés",  ttsLanguageCode: "fr-FR", colorHex: "#0055A4", bandera: "🇫🇷")
+    static let italiano = Idioma(id: "ITALIANO", displayName: "Italiano", ttsLanguageCode: "it-IT", colorHex: "#008C45", bandera: "🇮🇹")
+    static let chino    = Idioma(id: "CHINO",    displayName: "Chino",    ttsLanguageCode: "zh-CN", colorHex: "#DE2910", bandera: "🇨🇳")
+    static let turco    = Idioma(id: "TURCO",    displayName: "Turco",    ttsLanguageCode: "tr-TR", colorHex: "#E30A17", bandera: "🇹🇷")
+    static let arabe    = Idioma(id: "ARABE",    displayName: "Árabe",    ttsLanguageCode: "ar-SA", colorHex: "#006C35", bandera: "🇸🇦")
+    static let aleman   = Idioma(id: "ALEMAN",   displayName: "Alemán",   ttsLanguageCode: "de-DE", colorHex: "#FFCE00", bandera: "🇩🇪")
 
-    static let todos: [Idioma] = [.espanol, .ingles, .frances, .italiano, .chino, .turco, .arabe, .aleman, .portugues]
+    static let portugues = Idioma(id: "PORTUGUES", displayName: "Portugués", ttsLanguageCode: "pt-PT", colorHex: "#046A38", bandera: "🇵🇹")
+
+    static let rumano = Idioma(id: "RUMANO", displayName: "Rumano", ttsLanguageCode: "ro-RO", colorHex: "#002B7F", bandera: "🇷🇴")
+    static let polaco = Idioma(id: "POLACO", displayName: "Polaco", ttsLanguageCode: "pl-PL", colorHex: "#DC143C", bandera: "🇵🇱")
+
+    static let todos: [Idioma] = [.espanol, .ingles, .frances, .italiano, .chino, .turco, .arabe, .aleman, .portugues, .rumano, .polaco]
 }
 
 /// Una burbuja de la conversación. Equivalente a las entradas que

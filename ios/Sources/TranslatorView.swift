@@ -43,12 +43,12 @@ struct TranslatorView: View {
             HStack {
                 Picker("Idioma A", selection: $langA) {
                     ForEach(Idioma.todos) { idioma in
-                        Text(idioma.displayName).tag(idioma)
+                        Text(idioma.etiqueta).tag(idioma)
                     }
                 }
                 Picker("Idioma B", selection: $langB) {
                     ForEach(Idioma.todos) { idioma in
-                        Text(idioma.displayName).tag(idioma)
+                        Text(idioma.etiqueta).tag(idioma)
                     }
                 }
             }
@@ -116,7 +116,7 @@ struct TranslatorView: View {
         Button {
             onLangButtonTap(idioma)
         } label: {
-            Text(estaGrabandoEste ? "🔴 Toca para parar" : "Hablar en \(idioma.displayName)")
+            Text(estaGrabandoEste ? "🔴 Toca para parar" : "Hablar en \(idioma.etiqueta)")
                 .frame(maxWidth: .infinity)
                 .padding()
                 .background(Color(hex: idioma.colorHex))
