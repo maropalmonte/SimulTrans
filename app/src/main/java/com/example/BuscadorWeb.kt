@@ -89,6 +89,14 @@ object BuscadorWeb {
         sb.append("fíjate en su fecha para saber si son de hoy, de ayer o más antiguas. ")
         sb.append("Cuando respondas, incluye los datos concretos que aparezcan (nombres de jugadores, minutos, cifras, lugares). Si el usuario escribió mal un nombre (un equipo, una persona), asume que se refiere al que aparece en los resultados y no menciones el error. Un nombre que aparece en un titular solo es el autor de un gol si el titular o el texto lo dicen expresamente (por ejemplo «gol de X» o «X marcó»); no lo deduzcas de otros detalles como quién jugó o no. Responde solo con lo que digan los resultados sobre el tema concreto de la pregunta: ignora los que traten de otros equipos, partidos o asuntos y nunca mezcles noticias distintas. No inventes datos y NUNCA uses marcadores como [nombre]: ")
         sb.append("si los resultados no contienen la respuesta, di claramente que no la has encontrado.\n")
+        val pista = extraerGoleador(
+            noticias.map { it.titulo + ". " + it.resumen } + textos.map { it.second },
+            consulta, correcciones
+        )
+        if (pista != null) {
+            sb.append("\nPISTA EXTRAÍDA AUTOMÁTICAMENTE DE LOS TEXTOS: el autor del gol que más se menciona es «")
+            sb.append(pista).append("». Si preguntan quién marcó, responde con ese nombre.\n")
+        }
         if (noticias.isNotEmpty()) {
             sb.append("\nNOTICIAS:")
             noticias.forEach {
@@ -243,6 +251,38 @@ object BuscadorWeb {
         }
 
     // ------------------------------------------------- corrección de nombres
+
+    private val NOMBRE = "([A-ZÁÉÍÓÚÑ][\\p{L}'-]+(?: [A-ZÁÉÍÓÚÑ][\\p{L}'-]+)?)"
+    private val PATRONES_GOL = listOf(
+        Regex("[Gg]ol(?:es)? de $NOMBRE"),
+        Regex("[Pp]enalti (?:de|transformado por|marcado por) $NOMBRE"),
+        Regex("$NOMBRE (?:marcó|anotó|marca|anota|firmó|firma|transformó|batió|bate|adelantó|adelanta) "),
+        Regex("(?:gracias a|con un gol de|con el gol de) $NOMBRE"),
+        Regex("$NOMBRE da la victoria")
+    )
+
+    /**
+     * Saca de los textos el nombre que más se repite como autor de un gol ("gol de Isco",
+     * "Isco anota…"). El modelo pequeño falla a menudo al leerlo y se inventa nombres; esto lo
+     * hace con reglas fijas y se le da como pista.
+     */
+    private fun extraerGoleador(textos: List<String>, consulta: String, correcciones: Map<String, String>): String? {
+        val excluidas = (consulta.split(" ") + correcciones.keys + correcciones.values +
+            listOf("Real", "Betis", "Champions", "League", "Liga", "Cartuja", "Sevilla", "El", "La", "Los", "Las", "Un", "Una"))
+            .map { normalizar(it) }.toSet()
+        val cuenta = HashMap<String, Int>()
+        val variante = HashMap<String, String>()
+        for (t in textos) for (patron in PATRONES_GOL) for (m in patron.findAll(t)) {
+            val nombre = m.groupValues[1].trim()
+            val tokens = nombre.split(" ")
+            if (tokens.any { normalizar(it) in excluidas }) continue
+            val clave = normalizar(tokens[0])
+            cuenta[clave] = (cuenta[clave] ?: 0) + 1
+            if ((variante[clave]?.length ?: 0) < nombre.length) variante[clave] = nombre
+        }
+        val mejor = cuenta.maxByOrNull { it.value } ?: return null
+        return variante[mejor.key]
+    }
 
     private fun normalizar(s: String): String =
         java.text.Normalizer.normalize(s.lowercase(), java.text.Normalizer.Form.NFD)
