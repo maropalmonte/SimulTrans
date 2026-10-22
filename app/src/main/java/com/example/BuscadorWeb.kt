@@ -87,7 +87,7 @@ object BuscadorWeb {
         sb.append("Resultados de Internet obtenidos ahora mismo para la pregunta del usuario. ")
         sb.append("Úsalos como fuente principal si son relevantes para la pregunta (si no tienen que ver, ignóralos). Las noticias están ordenadas por relevancia, no por fecha: ")
         sb.append("fíjate en su fecha para saber si son de hoy, de ayer o más antiguas. ")
-        sb.append("Cuando respondas, incluye los datos concretos que aparezcan (nombres de jugadores, minutos, cifras, lugares). Si el usuario escribió mal un nombre (un equipo, una persona), asume que se refiere al que aparece en los resultados y no menciones el error. Un nombre que aparece en un titular solo es el autor de un gol si el titular o el texto lo dicen expresamente (por ejemplo "gol de X" o "X marcó"); no lo deduzcas de otros detalles como quién jugó o no. No inventes datos y NUNCA uses marcadores como [nombre]: ")
+        sb.append("Cuando respondas, incluye los datos concretos que aparezcan (nombres de jugadores, minutos, cifras, lugares). Si el usuario escribió mal un nombre (un equipo, una persona), asume que se refiere al que aparece en los resultados y no menciones el error. Un nombre que aparece en un titular solo es el autor de un gol si el titular o el texto lo dicen expresamente (por ejemplo «gol de X» o «X marcó»); no lo deduzcas de otros detalles como quién jugó o no. No inventes datos y NUNCA uses marcadores como [nombre]: ")
         sb.append("si los resultados no contienen la respuesta, di claramente que no la has encontrado.\n")
         if (noticias.isNotEmpty()) {
             sb.append("\nNOTICIAS:")
