@@ -142,6 +142,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var chkWebSearch: CheckBox
     private lateinit var progressDownload: ProgressBar
     private var descargaJob: Job? = null
+    private var ultimaPreguntaAsistente: String? = null
     private lateinit var btnSendPrompt: Button
     private lateinit var txtAttachment: TextView
 
@@ -783,13 +784,15 @@ class MainActivity : AppCompatActivity() {
         lifecycleScope.launch {
             try {
                 var promptConBusqueda = promptFinal
+                val preguntaPrevia = ultimaPreguntaAsistente
+                ultimaPreguntaAsistente = texto
                 var fuentes = ""
                 var avisoSinRed = ""
                 if (buscarEnInternet) {
                     val estadoPrevio = statusText.text
                     statusText.text = getString(R.string.status_searching)
                     try {
-                        val consulta = translationEngine.consultaDeBusqueda(texto)
+                        val consulta = translationEngine.consultaDeBusqueda(texto, preguntaPrevia)
                         if (consulta != null) {
                             val localeBusqueda = assistantVoiceLang.speechLocale
                             var usada = consulta

@@ -133,7 +133,7 @@ No uses formato markdown (asteriscos, almohadillas, viñetas): tus respuestas se
      * devuelve las palabras clave para buscarla. Devuelve null si no hace
      * falta buscar (saludos, charla, práctica de idiomas, cálculos...).
      */
-    suspend fun consultaDeBusqueda(pregunta: String): String? = withContext(Dispatchers.IO) {
+    suspend fun consultaDeBusqueda(pregunta: String, preguntaAnterior: String? = null): String? = withContext(Dispatchers.IO) {
         mutex.withLock {
             val instruccion = """
                 Decide si para responder a la pregunta del usuario hace falta consultar Internet:
@@ -150,7 +150,11 @@ No uses formato markdown (asteriscos, almohadillas, viñetas): tus respuestas se
             """.trimIndent()
             val respuesta = engine.createConversation(
                 ConversationConfig(systemInstruction = Contents.of(instruccion))
-            ).use { it.sendMessage(pregunta).toString().trim() }
+            ).use {
+                val msg = if (preguntaAnterior.isNullOrBlank()) pregunta
+                else "Pregunta anterior del usuario: $preguntaAnterior\nPregunta actual (puede referirse a la anterior, p. ej. \"amplía\" o \"¿y el otro equipo?\"): $pregunta"
+                it.sendMessage(msg).toString().trim()
+            }
             val linea = respuesta.lineSequence().firstOrNull()?.trim()?.trim('"', '\'', '*') ?: ""
             if (linea.isBlank() || linea.startsWith("NINGUNA", ignoreCase = true)) null
             else linea.take(100)

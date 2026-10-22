@@ -38,7 +38,7 @@ object BuscadorWeb {
 
     class Busqueda(val contexto: String, val fuentes: String)
 
-    private data class Noticia(val titulo: String, val resumen: String, val medio: String, val fecha: String)
+    private data class Noticia(val titulo: String, val resumen: String, val medio: String, val fecha: String, val enlace: String)
     private data class Articulo(val titulo: String, val extracto: String, val url: String)
 
     /** [localeTag] es el idioma elegido, p. ej. "es-ES". Devuelve null si no se encontró nada. */
@@ -61,7 +61,12 @@ object BuscadorWeb {
         val noticias = (bing.await().take(6) + google.await().take(5))
             .filter { vistos.add(it.titulo.lowercase().take(50)) }
             .take(8)
-        val articulos = wiki.await().take(2)
+        // Wikipedia solo como apoyo cuando hay pocas noticias (si no, mete ruido).
+        val articulos = if (noticias.size >= 3) emptyList() else wiki.await().take(2)
+        // Texto completo de las 2 primeras noticias con enlace directo, para poder ampliar.
+        val textos = noticias.filter { it.enlace.isNotBlank() }.take(2).map { n ->
+            async { n to intentar("Artículo", { kotlinx.coroutines.runBlocking { textoArticulo(n.enlace) } }, "") }
+        }.map { it.await() }.filter { it.second.length > 200 }
         if (noticias.isEmpty() && articulos.isEmpty()) return@coroutineScope null
 
         val hoy = SimpleDateFormat("yyyy-MM-dd (EEEE)", Locale.forLanguageTag(localeTag)).format(Date())
@@ -70,7 +75,7 @@ object BuscadorWeb {
         sb.append("Resultados de Internet obtenidos ahora mismo para la pregunta del usuario. ")
         sb.append("Úsalos como fuente principal. Las noticias están ordenadas por relevancia, no por fecha: ")
         sb.append("fíjate en su fecha para saber si son de hoy, de ayer o más antiguas. ")
-        sb.append("No inventes datos y NUNCA uses marcadores como [nombre]: ")
+        sb.append("Cuando respondas, incluye los datos concretos que aparezcan (nombres de jugadores, minutos, cifras, lugares). No inventes datos y NUNCA uses marcadores como [nombre]: ")
         sb.append("si los resultados no contienen la respuesta, di claramente que no la has encontrado.\n")
         if (noticias.isNotEmpty()) {
             sb.append("\nNOTICIAS:")
@@ -80,6 +85,10 @@ object BuscadorWeb {
                 if (it.fecha.isNotBlank()) sb.append(" [").append(it.fecha).append("]")
                 if (it.resumen.isNotBlank()) sb.append(": ").append(it.resumen)
             }
+        }
+        if (textos.isNotEmpty()) {
+            sb.append("\n\nTEXTO DE LAS NOTICIAS (para dar detalles):")
+            textos.forEach { (n, t) -> sb.append("\n[").append(n.titulo).append("] ").append(t) }
         }
         if (articulos.isNotEmpty()) {
             sb.append("\n\nWIKIPEDIA:")
@@ -120,7 +129,7 @@ object BuscadorWeb {
         var enItem = false
         var tag = ""
         var titulo = StringBuilder(); var desc = StringBuilder()
-        var fecha = StringBuilder(); var medio = StringBuilder()
+        var fecha = StringBuilder(); var medio = StringBuilder(); var enlace = StringBuilder()
         var ev = p.eventType
         while (ev != XmlPullParser.END_DOCUMENT) {
             when (ev) {
@@ -129,12 +138,13 @@ object BuscadorWeb {
                     if (tag == "item") {
                         enItem = true
                         titulo = StringBuilder(); desc = StringBuilder()
-                        fecha = StringBuilder(); medio = StringBuilder()
+                        fecha = StringBuilder(); medio = StringBuilder(); enlace = StringBuilder()
                     }
                 }
                 XmlPullParser.TEXT, XmlPullParser.CDSECT -> if (enItem) when {
                     tag == "title" -> titulo.append(p.text)
                     tag == "description" -> desc.append(p.text)
+                    tag == "link" -> enlace.append(p.text)
                     tag == "pubDate" -> fecha.append(p.text)
                     tag.endsWith("Source", ignoreCase = true) -> medio.append(p.text)
                 }
@@ -150,7 +160,7 @@ object BuscadorWeb {
                         }
                         val resumen = if (google) "" else limpiar(desc.toString()).take(300)
                         if (t.isNotBlank()) {
-                            lista.add(Noticia(t, resumen, m, fecha.toString().trim().take(16)))
+                            lista.add(Noticia(t, resumen, m, fecha.toString().trim().take(16), if (google) "" else enlace.toString().trim()))
                         }
                     }
                     tag = ""
@@ -186,6 +196,45 @@ object BuscadorWeb {
             }
             lista.sortedBy { it.first }.map { it.second }
         }
+
+    // -------------------------------------------------------------- artículos
+
+    /** Descarga una noticia y devuelve sus primeros párrafos como texto plano. */
+    private suspend fun textoArticulo(enlace: String): String = withContext(Dispatchers.IO) {
+        // Los enlaces de Bing News llevan la dirección real en el parámetro "url".
+        val directo = Regex("[?&]url=([^&]+)").find(enlace)?.groupValues?.get(1)
+            ?.let { java.net.URLDecoder.decode(it, "UTF-8") } ?: enlace
+        val c = URL(directo).openConnection() as HttpURLConnection
+        try {
+            c.connectTimeout = 6_000
+            c.readTimeout = 6_000
+            c.instanceFollowRedirects = true
+            c.setRequestProperty("User-Agent", AGENTE)
+            c.setRequestProperty("Accept-Language", "es,en;q=0.8")
+            if (c.responseCode != 200) return@withContext ""
+            val bytes = c.inputStream.use { it.readNBytesCompat(1_500_000) }
+            val html = String(bytes, Charsets.UTF_8)
+                .replace(Regex("(?is)<(script|style|noscript|nav|footer|header|aside)[^>]*>.*?</\\1>"), " ")
+            val parrafos = Regex("(?is)<p[^>]*>(.*?)</p>").findAll(html)
+                .map { limpiar(it.groupValues[1]) }
+                .filter { it.length > 60 }
+                .toList()
+            parrafos.joinToString(" ").take(1800)
+        } finally {
+            c.disconnect()
+        }
+    }
+
+    private fun java.io.InputStream.readNBytesCompat(max: Int): ByteArray {
+        val out = java.io.ByteArrayOutputStream()
+        val buf = ByteArray(32 * 1024)
+        while (out.size() < max) {
+            val n = read(buf)
+            if (n < 0) break
+            out.write(buf, 0, n)
+        }
+        return out.toByteArray()
+    }
 
     // ------------------------------------------------------------------- red
 
