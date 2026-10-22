@@ -38,7 +38,7 @@ object BuscadorWeb {
 
     class Busqueda(val contexto: String, val fuentes: String, val diag: String)
 
-    private data class Noticia(val titulo: String, val resumen: String, val medio: String, val fecha: String, val enlace: String)
+    private data class Noticia(val titulo: String, val resumen: String, val medio: String, val fecha: String, val enlace: String, val esGoogle: Boolean)
     private data class Articulo(val titulo: String, val extracto: String, val url: String)
 
     /** [localeTag] es el idioma elegido, p. ej. "es-ES". Devuelve null si no se encontró nada. */
@@ -65,9 +65,10 @@ object BuscadorWeb {
             .take(8)
         // Wikipedia solo como apoyo cuando hay pocas noticias (si no, mete ruido).
         val articulos = if (noticias.size >= 3) emptyList() else wiki.await().take(2)
-        // Texto completo de las 2 primeras noticias con enlace directo, para poder ampliar.
-        val textos = noticias.filter { it.enlace.isNotBlank() }.take(2).map { n ->
-            async { n to intentar("Artículo", { kotlinx.coroutines.runBlocking { textoArticulo(n.enlace) } }, "") }
+        // Texto completo de hasta 3 noticias con enlace directo, para poder ampliar.
+        val candidatas = noticias.mapNotNull { n -> enlaceDirecto(n)?.let { n to it } }.take(3)
+        val textos = candidatas.map { (n, url) ->
+            async { n to intentar("Artículo", { kotlinx.coroutines.runBlocking { textoArticulo(url) } }, "") }
         }.map { it.await() }.filter { it.second.length > 200 }
         if (noticias.isEmpty() && articulos.isEmpty()) return@coroutineScope null
 
@@ -164,7 +165,7 @@ object BuscadorWeb {
                         }
                         val resumen = if (google) "" else limpiar(desc.toString()).take(300)
                         if (t.isNotBlank()) {
-                            lista.add(Noticia(t, resumen, m, fecha.toString().trim().take(16), if (google) "" else enlace.toString().trim()))
+                            lista.add(Noticia(t, resumen, m, fecha.toString().trim().take(16), enlace.toString().trim(), google))
                         }
                     }
                     tag = ""
@@ -203,12 +204,26 @@ object BuscadorWeb {
 
     // -------------------------------------------------------------- artículos
 
+    /**
+     * Dirección real de la noticia: Bing la lleva en el parámetro "url"; Google News
+     * la codifica en base64 dentro del enlace (solo los formatos antiguos se pueden leer).
+     */
+    private fun enlaceDirecto(n: Noticia): String? {
+        if (n.enlace.isBlank()) return null
+        if (!n.esGoogle) {
+            val u = Regex("[?&]url=([^&]+)").find(n.enlace)?.groupValues?.get(1)
+            return if (u != null) java.net.URLDecoder.decode(u, "UTF-8") else n.enlace
+        }
+        return try {
+            val id = n.enlace.substringAfter("/articles/").substringBefore('?')
+            val bytes = android.util.Base64.decode(id, android.util.Base64.URL_SAFE or android.util.Base64.NO_PADDING)
+            Regex("https?://[\\x21-\\x7e]+").find(String(bytes, Charsets.ISO_8859_1))?.value
+        } catch (e: Exception) { null }
+    }
+
     /** Descarga una noticia y devuelve sus primeros párrafos como texto plano. */
     private suspend fun textoArticulo(enlace: String): String = withContext(Dispatchers.IO) {
-        // Los enlaces de Bing News llevan la dirección real en el parámetro "url".
-        val directo = Regex("[?&]url=([^&]+)").find(enlace)?.groupValues?.get(1)
-            ?.let { java.net.URLDecoder.decode(it, "UTF-8") } ?: enlace
-        val c = URL(directo).openConnection() as HttpURLConnection
+        val c = URL(enlace).openConnection() as HttpURLConnection
         try {
             c.connectTimeout = 6_000
             c.readTimeout = 6_000
