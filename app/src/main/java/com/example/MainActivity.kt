@@ -144,6 +144,7 @@ class MainActivity : AppCompatActivity() {
     private var descargaJob: Job? = null
     private var ultimaPreguntaAsistente: String? = null
     private var ultimaConsultaUsada: String? = null
+    private var ultimaReciente: Boolean = false
     private val versionApp: String by lazy {
         try { packageManager.getPackageInfo(packageName, 0).versionName ?: "?" } catch (e: Exception) { "?" }
     }
@@ -796,29 +797,28 @@ class MainActivity : AppCompatActivity() {
                     val estadoPrevio = statusText.text
                     statusText.text = getString(R.string.status_searching)
                     try {
-                        // El modelo pequeño decide mal si "hace falta" buscar (a veces dice que
-                        // no sabe y no busca): se busca siempre, y el modelo solo elige las
-                        // palabras clave. Si no las da, se usa la pregunta tal cual.
-                        val deModelo = translationEngine.consultaDeBusqueda(texto, preguntaPrevia)
-                            ?.replace(Regex("(?i)\\bnoticias?\\b"), "")?.trim()
-                        val consulta = when {
-                            !deModelo.isNullOrBlank() -> deModelo
-                            // Pregunta corta de seguimiento ("¿quién marcó el gol?"): se suma el tema anterior.
-                            ultimaConsultaUsada != null && texto.length < 60 ->
-                                "$ultimaConsultaUsada $texto".take(100)
-                            else -> texto.take(100)
-                        }
+                        // Las palabras clave se sacan sin el modelo (es lento y a veces se niega a buscar).
+                        val claves = BuscadorWeb.palabrasClave(texto)
+                        // Si la pregunta trae un nombre propio nuevo, es un tema nuevo, no un seguimiento.
+                        val traeNombrePropio = Regex("[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+")
+                            .containsMatchIn(texto.replace(Regex("^[¿¡\\s]*\\S+"), ""))
+                        val esSeguimiento = ultimaConsultaUsada != null && texto.length < 60 && !traeNombrePropio &&
+                            Regex("\\b(ayer|hoy|anoche|este|esta|equipo|partido|él|ella|ese|esa)\\b|quién|quien|cuánto|cuanto|minuto|gol|marc", RegexOption.IGNORE_CASE).containsMatchIn(texto)
+                        val reciente = Regex("ayer|hoy|anoche|esta semana|últim|reciente|ahora mismo|actual", RegexOption.IGNORE_CASE).containsMatchIn(texto) ||
+                            (esSeguimiento && ultimaReciente)
+                        val consulta = if (esSeguimiento) "$ultimaConsultaUsada $claves".take(100) else claves
                         val localeBusqueda = assistantVoiceLang.speechLocale
                         var usada = consulta
-                        var busqueda = BuscadorWeb.buscar(consulta, localeBusqueda)
+                        var busqueda = BuscadorWeb.buscar(consulta, localeBusqueda, reciente)
                         if (busqueda == null && consulta != texto.take(100)) {
                             // Segundo intento con la pregunta tal cual la escribió el usuario.
                             usada = texto.take(100)
-                            busqueda = BuscadorWeb.buscar(usada, localeBusqueda)
+                            busqueda = BuscadorWeb.buscar(usada, localeBusqueda, reciente)
                         }
                         if (busqueda != null) {
                             promptConBusqueda = busqueda.contexto + "\n\n" + promptFinal
-                            ultimaConsultaUsada = deModelo?.takeIf { it.isNotBlank() } ?: ultimaConsultaUsada
+                            if (!esSeguimiento) ultimaConsultaUsada = claves
+                            ultimaReciente = reciente
                             fuentes = "\n\n🔎 Búsqueda: «$usada» [v$versionApp · ${busqueda.diag}]\n" + busqueda.fuentes
                         } else {
                             avisoSinRed = "\n\n🔎 Búsqueda: «$usada» — sin resultados${if (BuscadorWeb.ultimoError.isNotBlank()) " (" + BuscadorWeb.ultimoError + ")" else ""}. Respondo con lo que sé, que puede estar desactualizado. [v$versionApp]"

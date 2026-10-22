@@ -30,7 +30,7 @@ object BuscadorWeb {
     /** Último fallo de red/lectura, para mostrarlo si no hay resultados. */
     @Volatile var ultimoError: String = ""
 
-    private fun <T> intentar(origen: String, bloque: () -> T, vacio: T): T =
+    private suspend fun <T> intentar(origen: String, bloque: suspend () -> T, vacio: T): T =
         try { bloque() } catch (e: Exception) {
             ultimoError = "$origen: ${e.javaClass.simpleName} ${e.message ?: ""}".trim()
             vacio
@@ -38,27 +38,25 @@ object BuscadorWeb {
 
     class Busqueda(val contexto: String, val fuentes: String, val diag: String)
 
-    private data class Noticia(val titulo: String, val resumen: String, val medio: String, val fecha: String, val enlace: String, val esGoogle: Boolean)
+    private data class Noticia(val titulo: String, val resumen: String, val medio: String, val fecha: String, val enlace: String, val esGoogle: Boolean, val ms: Long = 0L)
     private data class Articulo(val titulo: String, val extracto: String, val url: String)
 
     /** [localeTag] es el idioma elegido, p. ej. "es-ES". Devuelve null si no se encontró nada. */
-    suspend fun buscar(consulta: String, localeTag: String): Busqueda? = coroutineScope {
+    suspend fun buscar(consulta: String, localeTag: String, reciente: Boolean = false): Busqueda? = coroutineScope {
         ultimoError = ""
         val lang = localeTag.substringBefore('-')
         val pais = localeTag.substringAfter('-', lang.uppercase())
-        val bing = async { intentar("Bing", { kotlinx.coroutines.runBlocking { noticiasBing(consulta, localeTag) } }, emptyList()) }
-        val google = async { intentar("Google", { kotlinx.coroutines.runBlocking { noticiasGoogle(consulta, lang, pais) } }, emptyList()) }
-        val wiki = async {
+        val bing = async(Dispatchers.IO) { intentar("Bing", { noticiasBing(consulta, localeTag) }, emptyList()) }
+        val google = async(Dispatchers.IO) { intentar("Google", { noticiasGoogle(consulta, lang, pais, reciente) }, emptyList()) }
+        val wiki = async(Dispatchers.IO) {
             intentar("Wikipedia", {
-                kotlinx.coroutines.runBlocking {
-                    val r = wikipedia(consulta, lang)
-                    if (r.isEmpty() && lang != "en") wikipedia(consulta, "en") else r
-                }
+                val r = wikipedia(consulta, lang)
+                if (r.isEmpty() && lang != "en") wikipedia(consulta, "en") else r
             }, emptyList())
         }
 
         val listaBing = bing.await()
-        val listaGoogle = google.await()
+        val listaGoogle = google.await().let { l -> if (reciente) l.sortedByDescending { it.ms } else l }
         val vistos = mutableSetOf<String>()
         val noticias = (listaBing.take(6) + listaGoogle.take(5))
             .filter { vistos.add(it.titulo.lowercase().take(50)) }
@@ -66,10 +64,14 @@ object BuscadorWeb {
         // Wikipedia solo como apoyo cuando hay pocas noticias (si no, mete ruido).
         val articulos = if (noticias.size >= 3) emptyList() else wiki.await().take(2)
         // Texto completo de hasta 3 noticias con enlace directo, para poder ampliar.
-        val candidatas = noticias.mapNotNull { n -> enlaceDirecto(n)?.let { n to it } }.take(3)
-        val textos = candidatas.map { (n, url) ->
-            async { n to intentar("Artículo", { kotlinx.coroutines.runBlocking { textoArticulo(url) } }, "") }
-        }.map { it.await() }.filter { it.second.length > 200 }
+        val textos = noticias.filter { it.enlace.isNotBlank() }.take(4).map { n ->
+            async(Dispatchers.IO) {
+                n to intentar("Artículo", {
+                    val u = enlaceDirecto(n)
+                    if (u == null) "" else textoArticulo(u)
+                }, "")
+            }
+        }.map { it.await() }.filter { it.second.length > 200 }.take(3)
         if (noticias.isEmpty() && articulos.isEmpty()) return@coroutineScope null
 
         val hoy = SimpleDateFormat("yyyy-MM-dd (EEEE)", Locale.forLanguageTag(localeTag)).format(Date())
@@ -115,12 +117,16 @@ object BuscadorWeb {
     private suspend fun noticiasBing(consulta: String, locale: String): List<Noticia> =
         withContext(Dispatchers.IO) {
             val q = URLEncoder.encode(consulta, "UTF-8")
-            parsearRss(descargar("https://www.bing.com/news/search?q=$q&format=rss&mkt=$locale"), google = false)
+            val cuerpo = descargar("https://www.bing.com/news/search?q=$q&format=RSS&mkt=$locale")
+            if (!cuerpo.trimStart().startsWith("<?xml") && !cuerpo.contains("<rss")) {
+                throw java.io.IOException("devolvió HTML en vez de RSS")
+            }
+            parsearRss(cuerpo, google = false)
         }
 
-    private suspend fun noticiasGoogle(consulta: String, lang: String, pais: String): List<Noticia> =
+    private suspend fun noticiasGoogle(consulta: String, lang: String, pais: String, reciente: Boolean): List<Noticia> =
         withContext(Dispatchers.IO) {
-            val q = URLEncoder.encode(consulta, "UTF-8")
+            val q = URLEncoder.encode(if (reciente) "$consulta when:2d" else consulta, "UTF-8")
             parsearRss(
                 descargar("https://news.google.com/rss/search?q=$q&hl=$lang&gl=$pais&ceid=$pais:$lang"),
                 google = true
@@ -165,7 +171,7 @@ object BuscadorWeb {
                         }
                         val resumen = if (google) "" else limpiar(desc.toString()).take(300)
                         if (t.isNotBlank()) {
-                            lista.add(Noticia(t, resumen, m, fecha.toString().trim().take(16), enlace.toString().trim(), google))
+                            lista.add(Noticia(t, resumen, m, fecha.toString().trim().take(16), enlace.toString().trim(), google, fechaAMs(fecha.toString())))
                         }
                     }
                     tag = ""
@@ -175,6 +181,10 @@ object BuscadorWeb {
         }
         return lista
     }
+
+    private fun fechaAMs(s: String): Long = try {
+        SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz", Locale.ENGLISH).parse(s.trim())?.time ?: 0L
+    } catch (e: Exception) { 0L }
 
     private fun limpiar(s: String): String =
         Html.fromHtml(s, Html.FROM_HTML_MODE_LEGACY).toString().replace(' ', ' ').trim()
@@ -202,22 +212,82 @@ object BuscadorWeb {
             lista.sortedBy { it.first }.map { it.second }
         }
 
+    // ----------------------------------------------------------- palabras clave
+
+    private val PALABRAS_VACIAS = setOf(
+        "cómo", "como", "qué", "que", "quién", "quien", "quiénes", "cuál", "cual", "cuándo", "cuando",
+        "dónde", "donde", "por", "para", "con", "sin", "de", "del", "la", "el", "los", "las", "un", "una",
+        "unos", "unas", "en", "y", "o", "a", "al", "es", "fue", "fueron", "ha", "han", "hay", "me", "mi",
+        "tu", "su", "se", "lo", "le", "quedó", "quedo", "jugando", "jugó", "ayer", "hoy", "anoche",
+        "mañana", "dime", "cuéntame", "puedes", "podrías", "sobre", "acerca", "está", "esta", "este",
+        "ese", "esa", "más", "mas", "muy", "pero", "si", "no", "ya", "también", "tiene", "tienen",
+        "how", "what", "who", "when", "where", "the", "of", "in", "on", "and", "is", "was", "did",
+        "yesterday", "today", "tell", "me", "about"
+    )
+
+    /** Palabras clave de una pregunta, sin necesidad de preguntárselo al modelo (que es lento y falla). */
+    fun palabrasClave(pregunta: String): String {
+        val base = pregunta.replace(Regex("[¿?¡!.,;:()\"]"), " ")
+            .split(Regex("\\s+")).filter { it.isNotBlank() && it.lowercase() !in PALABRAS_VACIAS }
+            .take(6).toMutableList()
+        val l = pregunta.lowercase()
+        if (Regex("quedó|quedo|resultado|ganó|perdió|empat|marcador").containsMatchIn(l)) base.add("resultado")
+        if (Regex("marcó|gol|goleador|anotó").containsMatchIn(l)) base.add("goles")
+        return base.joinToString(" ").ifBlank { pregunta.take(100) }.take(100)
+    }
+
     // -------------------------------------------------------------- artículos
 
     /**
      * Dirección real de la noticia: Bing la lleva en el parámetro "url"; Google News
      * la codifica en base64 dentro del enlace (solo los formatos antiguos se pueden leer).
      */
-    private fun enlaceDirecto(n: Noticia): String? {
-        if (n.enlace.isBlank()) return null
+    private suspend fun enlaceDirecto(n: Noticia): String? = withContext(Dispatchers.IO) {
+        if (n.enlace.isBlank()) return@withContext null
         if (!n.esGoogle) {
             val u = Regex("[?&]url=([^&]+)").find(n.enlace)?.groupValues?.get(1)
-            return if (u != null) java.net.URLDecoder.decode(u, "UTF-8") else n.enlace
+            return@withContext if (u != null) java.net.URLDecoder.decode(u, "UTF-8") else n.enlace
         }
-        return try {
-            val id = n.enlace.substringAfter("/articles/").substringBefore('?')
+        resolverGoogle(n.enlace)
+    }
+
+    /**
+     * Los enlaces de Google News no apuntan al periódico: hay que pedirle a Google la
+     * dirección real. Primero se prueba el formato antiguo (la dirección va dentro del
+     * enlace, en base64) y, si no, el nuevo (consulta a su servicio interno).
+     */
+    private fun resolverGoogle(enlace: String): String? {
+        val id = enlace.substringAfter("/articles/", "").substringBefore('?')
+        if (id.isBlank()) return null
+        try {
             val bytes = android.util.Base64.decode(id, android.util.Base64.URL_SAFE or android.util.Base64.NO_PADDING)
-            Regex("https?://[\\x21-\\x7e]+").find(String(bytes, Charsets.ISO_8859_1))?.value
+            val u = Regex("https?://[\\x21-\\x7e]+").find(String(bytes, Charsets.ISO_8859_1))?.value
+            if (u != null && !u.contains("news.google.com")) return u
+        } catch (e: Exception) { /* sigue con el formato nuevo */ }
+        return try {
+            val pagina = descargar("https://news.google.com/rss/articles/$id?hl=en-US&gl=US&ceid=US:en")
+            val firma = Regex("data-n-a-sg=\"([^\"]+)\"").find(pagina)?.groupValues?.get(1) ?: return null
+            val marca = Regex("data-n-a-ts=\"([^\"]+)\"").find(pagina)?.groupValues?.get(1) ?: return null
+            val interno = "[\"garturlreq\",[[\"X\",\"X\",[\"X\",\"X\"],null,null,1,1,\"US:en\",null,1,null,null,null,null,null,0,1]," +
+                "\"X\",\"X\",1,[1,1,1],1,1,null,0,0,null,0],\"$id\",$marca,\"$firma\"]"
+            val peticion = "[[[\"Fbv4je\"," + JSONObject.quote(interno) + ",null,\"generic\"]]]"
+            val c = URL("https://news.google.com/_/DotsSplashUi/data/batchexecute").openConnection() as HttpURLConnection
+            try {
+                c.requestMethod = "POST"
+                c.doOutput = true
+                c.connectTimeout = 6_000
+                c.readTimeout = 6_000
+                c.setRequestProperty("User-Agent", AGENTE)
+                c.setRequestProperty("Content-Type", "application/x-www-form-urlencoded;charset=UTF-8")
+                c.outputStream.use { it.write(("f.req=" + URLEncoder.encode(peticion, "UTF-8")).toByteArray()) }
+                if (c.responseCode != 200) return null
+                val resp = c.inputStream.bufferedReader().use { it.readText() }
+                val bloque = resp.split("\n\n")[1].dropLast(2)
+                val interior = org.json.JSONArray(bloque).getJSONArray(0).getString(2)
+                org.json.JSONArray(interior).getString(1)
+            } finally {
+                c.disconnect()
+            }
         } catch (e: Exception) { null }
     }
 
