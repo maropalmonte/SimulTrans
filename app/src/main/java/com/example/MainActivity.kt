@@ -143,6 +143,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var progressDownload: ProgressBar
     private var descargaJob: Job? = null
     private var ultimaPreguntaAsistente: String? = null
+    private var ultimaConsultaUsada: String? = null
     private val versionApp: String by lazy {
         try { packageManager.getPackageInfo(packageName, 0).versionName ?: "?" } catch (e: Exception) { "?" }
     }
@@ -798,8 +799,15 @@ class MainActivity : AppCompatActivity() {
                         // El modelo pequeño decide mal si "hace falta" buscar (a veces dice que
                         // no sabe y no busca): se busca siempre, y el modelo solo elige las
                         // palabras clave. Si no las da, se usa la pregunta tal cual.
-                        val consulta = translationEngine.consultaDeBusqueda(texto, preguntaPrevia)
-                            ?: texto.take(100)
+                        val deModelo = translationEngine.consultaDeBusqueda(texto, preguntaPrevia)
+                            ?.replace(Regex("(?i)\\bnoticias?\\b"), "")?.trim()
+                        val consulta = when {
+                            !deModelo.isNullOrBlank() -> deModelo
+                            // Pregunta corta de seguimiento ("¿quién marcó el gol?"): se suma el tema anterior.
+                            ultimaConsultaUsada != null && texto.length < 60 ->
+                                "$ultimaConsultaUsada $texto".take(100)
+                            else -> texto.take(100)
+                        }
                         val localeBusqueda = assistantVoiceLang.speechLocale
                         var usada = consulta
                         var busqueda = BuscadorWeb.buscar(consulta, localeBusqueda)
@@ -810,7 +818,8 @@ class MainActivity : AppCompatActivity() {
                         }
                         if (busqueda != null) {
                             promptConBusqueda = busqueda.contexto + "\n\n" + promptFinal
-                            fuentes = "\n\n🔎 Búsqueda: «$usada» [v$versionApp]\n" + busqueda.fuentes
+                            ultimaConsultaUsada = deModelo?.takeIf { it.isNotBlank() } ?: ultimaConsultaUsada
+                            fuentes = "\n\n🔎 Búsqueda: «$usada» [v$versionApp · ${busqueda.diag}]\n" + busqueda.fuentes
                         } else {
                             avisoSinRed = "\n\n🔎 Búsqueda: «$usada» — sin resultados${if (BuscadorWeb.ultimoError.isNotBlank()) " (" + BuscadorWeb.ultimoError + ")" else ""}. Respondo con lo que sé, que puede estar desactualizado. [v$versionApp]"
                         }

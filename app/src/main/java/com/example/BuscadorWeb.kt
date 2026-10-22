@@ -36,7 +36,7 @@ object BuscadorWeb {
             vacio
         }
 
-    class Busqueda(val contexto: String, val fuentes: String)
+    class Busqueda(val contexto: String, val fuentes: String, val diag: String)
 
     private data class Noticia(val titulo: String, val resumen: String, val medio: String, val fecha: String, val enlace: String)
     private data class Articulo(val titulo: String, val extracto: String, val url: String)
@@ -57,8 +57,10 @@ object BuscadorWeb {
             }, emptyList())
         }
 
+        val listaBing = bing.await()
+        val listaGoogle = google.await()
         val vistos = mutableSetOf<String>()
-        val noticias = (bing.await().take(6) + google.await().take(5))
+        val noticias = (listaBing.take(6) + listaGoogle.take(5))
             .filter { vistos.add(it.titulo.lowercase().take(50)) }
             .take(8)
         // Wikipedia solo como apoyo cuando hay pocas noticias (si no, mete ruido).
@@ -102,7 +104,9 @@ object BuscadorWeb {
             }
             articulos.forEach { add("• Wikipedia: ${it.titulo} — ${it.url}") }
         }.joinToString("\n")
-        Busqueda(sb.toString(), fuentes)
+        val diag = "Bing ${listaBing.size} · Google ${listaGoogle.size} · textos ${textos.size}" +
+            (if (ultimoError.isNotBlank()) " · error: $ultimoError" else "")
+        Busqueda(sb.toString(), fuentes, diag)
     }
 
     // ---------------------------------------------------------------- noticias
