@@ -802,12 +802,13 @@ class MainActivity : AppCompatActivity() {
                         // Pregunta corta o orden de buscar ("búscala por internet"): se suma el tema
                         // anterior. Si así no hay resultados, se reintenta solo con la pregunta nueva.
                         val esOrden = Regex("b[uú]sca(la|lo|me)?\\b|internet|mira en|consulta", RegexOption.IGNORE_CASE).containsMatchIn(texto) && texto.length < 60
-                        val esSeguimiento = ultimaConsultaUsada != null && (esOrden || texto.length < 60)
+                        val pocasClaves = claves.split(" ").count { it.lowercase() != "resultado" && it.lowercase() != "goles" } <= 3
+                        val esSeguimiento = ultimaConsultaUsada != null && (esOrden || (texto.length < 60 && pocasClaves))
                         val reciente = Regex("ayer|hoy|anoche|esta semana|últim|reciente|ahora mismo|actual", RegexOption.IGNORE_CASE).containsMatchIn(texto) ||
                             (esSeguimiento && ultimaReciente)
                         val consulta = when {
                             esOrden -> ultimaConsultaUsada!!
-                            esSeguimiento -> "$ultimaConsultaUsada $claves".take(100)
+                            esSeguimiento -> (ultimaConsultaUsada!!.split(" ") + claves.split(" ")).distinctBy { it.lowercase() }.joinToString(" ").take(100)
                             else -> claves
                         }
                         val localeBusqueda = assistantVoiceLang.speechLocale

@@ -80,7 +80,7 @@ object BuscadorWeb {
         sb.append("Resultados de Internet obtenidos ahora mismo para la pregunta del usuario. ")
         sb.append("Úsalos como fuente principal si son relevantes para la pregunta (si no tienen que ver, ignóralos). Las noticias están ordenadas por relevancia, no por fecha: ")
         sb.append("fíjate en su fecha para saber si son de hoy, de ayer o más antiguas. ")
-        sb.append("Cuando respondas, incluye los datos concretos que aparezcan (nombres de jugadores, minutos, cifras, lugares). No inventes datos y NUNCA uses marcadores como [nombre]: ")
+        sb.append("Cuando respondas, incluye los datos concretos que aparezcan (nombres de jugadores, minutos, cifras, lugares). Si el usuario escribió mal un nombre (un equipo, una persona), asume que se refiere al que aparece en los resultados y no menciones el error. No inventes datos y NUNCA uses marcadores como [nombre]: ")
         sb.append("si los resultados no contienen la respuesta, di claramente que no la has encontrado.\n")
         if (noticias.isNotEmpty()) {
             sb.append("\nNOTICIAS:")
@@ -311,11 +311,42 @@ object BuscadorWeb {
                 val interior = org.json.JSONArray(bloque).getJSONArray(0).getString(2)
                 org.json.JSONArray(interior).getString(1)
             } catch (e: Exception) {
-                throw java.io.IOException("Google: respuesta no legible")
+                extraerUrlDeRespuesta(resp)
+                    ?: throw java.io.IOException(
+                        "Google: respuesta no legible: " + resp.take(120).replace(Regex("\\s+"), " ")
+                    )
             }
         } finally {
             c.disconnect()
         }
+    }
+
+    /** Plan B: busca la dirección tras "garturlresp" en el texto bruto de la respuesta. */
+    private fun extraerUrlDeRespuesta(resp: String): String? {
+        val i = resp.indexOf("garturlresp")
+        if (i < 0) return null
+        var k = resp.indexOf("http", i)
+        if (k < 0) return null
+        val sb = StringBuilder()
+        while (k < resp.length) {
+            val ch = resp[k]
+            if (ch == '"') break
+            if (ch == '\\') {
+                val n = resp.getOrNull(k + 1)
+                when {
+                    n == '"' -> break
+                    n == '/' -> { sb.append('/'); k += 2; continue }
+                    n == '\\' -> { k += 1; continue }
+                    n == 'u' && k + 6 <= resp.length -> {
+                        sb.append(resp.substring(k + 2, k + 6).toInt(16).toChar()); k += 6; continue
+                    }
+                    else -> { k += 1; continue }
+                }
+            }
+            sb.append(ch)
+            k++
+        }
+        return sb.toString().takeIf { it.startsWith("http") && !it.contains("news.google.com") }
     }
 
     /** Descarga una noticia y devuelve sus primeros párrafos como texto plano. */
