@@ -823,12 +823,14 @@ class MainActivity : AppCompatActivity() {
                             promptConBusqueda = busqueda.contexto + "\n\n" + promptFinal
                             if (!esSeguimiento || usada == claves) ultimaConsultaUsada = usada
                             ultimaReciente = reciente
-                            fuentes = "\n\n🔎 Búsqueda: «$usada» [v$versionApp · ${busqueda.diag}]\n" + busqueda.fuentes
+                            Log.d("SimulTrans", "Búsqueda «$usada» [v$versionApp · ${busqueda.diag}]\n${busqueda.fuentes}")
                         } else {
-                            avisoSinRed = "\n\n🔎 Búsqueda: «$usada» — sin resultados${if (BuscadorWeb.ultimoError.isNotBlank()) " (" + BuscadorWeb.ultimoError + ")" else ""}. Respondo con lo que sé, que puede estar desactualizado. [v$versionApp]"
+                            Log.d("SimulTrans", "Búsqueda «$usada» sin resultados: ${BuscadorWeb.ultimoError}")
+                            avisoSinRed = "\n\n(No he encontrado nada en Internet sobre esto; respondo con lo que sé, que puede estar desactualizado.)"
                         }
                     } catch (e: Exception) {
-                        avisoSinRed = "\n\n🔎 No se pudo consultar Internet (${e.javaClass.simpleName}: ${e.message}). Respondo con lo que sé."
+                        Log.d("SimulTrans", "Búsqueda fallida: ${e.javaClass.simpleName} ${e.message}")
+                        avisoSinRed = "\n\n(No he podido consultar Internet; respondo con lo que sé.)"
                     }
                     statusText.text = estadoPrevio
                 }
