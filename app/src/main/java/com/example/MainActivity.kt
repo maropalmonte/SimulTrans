@@ -749,6 +749,15 @@ class MainActivity : AppCompatActivity() {
         val texto = promptInput.text.toString().trim()
         if (texto.isBlank() && pendingImages.isEmpty() && pendingTextContext == null) return
 
+        // Orden interna "/debug": activa o desactiva el modo depuración (muestra cómo se ha buscado).
+        if (texto.trim().equals("/debug", ignoreCase = true)) {
+            val activo = !prefs.getBoolean("debug", false)
+            prefs.edit().putBoolean("debug", activo).apply()
+            promptInput.setText("")
+            Toast.makeText(this, if (activo) "Modo depuración activado" else "Modo depuración desactivado", Toast.LENGTH_SHORT).show()
+            return
+        }
+
         val etiquetaUsuario = if (pendingAttachmentLabel != null) {
             "$texto\n$pendingAttachmentLabel".trim()
         } else {
@@ -791,6 +800,8 @@ class MainActivity : AppCompatActivity() {
                 var promptConBusqueda = promptFinal
                 var huboBusqueda = false
                 var textoFuentes = ""
+                var goleadorExtraido: String? = null
+                var lineaDebug = ""
                 var titularesFuentes = ""
                 val preguntaPrevia = ultimaPreguntaAsistente
                 ultimaPreguntaAsistente = texto
@@ -827,6 +838,8 @@ class MainActivity : AppCompatActivity() {
                             huboBusqueda = true
                             textoFuentes = busqueda.contexto
                             titularesFuentes = busqueda.fuentes
+                            goleadorExtraido = busqueda.goleador
+                            lineaDebug = "\n\n🔎 «$usada» [v$versionApp · ${busqueda.diag}]\n" + busqueda.fuentes
                             if (!esSeguimiento || usada == claves) ultimaConsultaUsada = usada
                             ultimaReciente = reciente
                             Log.d("SimulTrans", "Búsqueda «$usada» [v$versionApp · ${busqueda.diag}]\n${busqueda.fuentes}")
@@ -840,9 +853,13 @@ class MainActivity : AppCompatActivity() {
                     }
                     statusText.text = estadoPrevio
                 }
-                var (respuesta, reiniciada) = responderAsistente(
-                    promptConBusqueda, imagenesParaEnviar, huboBusqueda, contextoPrevio != null
-                )
+                val preguntaPorGol = Regex("marc[oó]|met[ií]o|anot[oó]|\\bgol|goleador", RegexOption.IGNORE_CASE).containsMatchIn(texto)
+                var (respuesta, reiniciada) = if (huboBusqueda && preguntaPorGol && goleadorExtraido != null) {
+                    // Respuesta directa con el nombre extraído de las noticias: el modelo pequeño lo inventa.
+                    "El gol lo marcó $goleadorExtraido, según las noticias encontradas." to true
+                } else {
+                    responderAsistente(promptConBusqueda, imagenesParaEnviar, huboBusqueda, contextoPrevio != null)
+                }
                 if (huboBusqueda) {
                     // Control de calidad: lo que diga la respuesta tiene que estar en los textos encontrados.
                     var dudosos = datosNoRespaldados(respuesta, "$textoFuentes $texto")
@@ -864,7 +881,7 @@ class MainActivity : AppCompatActivity() {
                         }
                     }
                 }
-                addAssistantBubble(respuesta + fuentes + avisoSinRed, alignLeft = true, colorHex = "#4A90D9")
+                addAssistantBubble(respuesta + fuentes + avisoSinRed + (if (prefs.getBoolean("debug", false)) lineaDebug else ""), alignLeft = true, colorHex = "#4A90D9")
                 // La conversación viva se descartó: el próximo mensaje recibe un resumen de lo hablado.
                 if (reiniciada) pendingAssistantContext = resumenReciente(excluirUltima = false)
                 if (leerRespuesta) {

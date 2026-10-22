@@ -36,7 +36,7 @@ object BuscadorWeb {
             vacio
         }
 
-    class Busqueda(val contexto: String, val fuentes: String, val diag: String)
+    class Busqueda(val contexto: String, val fuentes: String, val diag: String, val goleador: String? = null)
 
     private data class Noticia(val titulo: String, val resumen: String, val medio: String, val fecha: String, val enlace: String, val esGoogle: Boolean, val ms: Long = 0L)
     private data class Articulo(val titulo: String, val extracto: String, val url: String)
@@ -122,8 +122,9 @@ object BuscadorWeb {
             articulos.forEach { add("• Wikipedia: ${it.titulo} — ${it.url}") }
         }.joinToString("\n")
         val diag = "Bing ${listaBing.size} · Google ${listaGoogle.size} · textos ${textos.size}" +
+            (if (pista != null) " · goleador $pista" else "") +
             (if (ultimoError.isNotBlank()) " · error: $ultimoError" else "")
-        Busqueda(sb.toString(), fuentes, diag)
+        Busqueda(sb.toString(), fuentes, diag, pista)
     }
 
     // ---------------------------------------------------------------- noticias
