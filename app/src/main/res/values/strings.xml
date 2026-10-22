@@ -11,6 +11,6 @@
     <string name="listening">Escuchando…</string>
     <string name="translating">Traduciendo…</string>
     <string name="btn_cancel_download">✖ Cancelar descarga</string>
-    <string name="chk_web_search">🌐 Buscar en Internet (noticias y Wikipedia)</string>
+    <string name="chk_web_search">🌐 Buscar en Internet</string>
     <string name="status_searching">Buscando en Internet…</string>
 </resources>

@@ -19,7 +19,10 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:padding="12dp"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:paddingTop="6dp"
+            android:paddingBottom="6dp"
             android:gravity="center"
             android:textSize="14sp"
             android:textColor="@color/text_primary"
@@ -84,13 +87,16 @@
         android:orientation="horizontal"
         android:paddingStart="12dp"
         android:paddingEnd="12dp"
-        android:paddingTop="10dp"
+        android:paddingTop="4dp"
         android:weightSum="2">
 
         <Button
             android:id="@+id/tabTranslator"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:minHeight="0dp"
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp"
             android:layout_weight="1"
             android:layout_marginEnd="4dp"
             android:backgroundTint="#FFFFFF"
@@ -101,6 +107,9 @@
             android:id="@+id/tabAssistant"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:minHeight="0dp"
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp"
             android:layout_weight="1"
             android:layout_marginStart="4dp"
             android:backgroundTint="#FFFFFF"
@@ -212,20 +221,20 @@
         android:orientation="vertical"
         android:visibility="gone">
 
-        <!-- Idioma de voz para dictar la pregunta y leer la respuesta -->
+        <!-- Idioma de voz (dictado y lectura) y botón de borrar, en una sola fila -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:paddingStart="12dp"
-            android:paddingEnd="12dp"
-            android:paddingTop="8dp"
+            android:paddingEnd="4dp"
+            android:paddingTop="2dp"
             android:gravity="center_vertical">
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Idioma de voz:"
+                android:text="Voz:"
                 android:textColor="@color/text_primary"
                 android:textSize="13sp"
                 android:layout_marginEnd="8dp" />
@@ -236,22 +245,18 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:background="@drawable/spinner_background" />
-        </LinearLayout>
 
-        <!-- Botón para borrar la conversación guardada del Asistente -->
-        <TextView
-            android:id="@+id/btnClearAssistantHistory"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="end"
-            android:layout_marginTop="4dp"
-            android:layout_marginEnd="12dp"
-            android:padding="8dp"
-            android:text="Borrar conversación"
-            android:textColor="@color/spanish_color"
-            android:textSize="13sp"
-            android:clickable="true"
-            android:focusable="true" />
+            <TextView
+                android:id="@+id/btnClearAssistantHistory"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:padding="10dp"
+                android:text="🗑 Borrar"
+                android:textColor="@color/spanish_color"
+                android:textSize="13sp"
+                android:clickable="true"
+                android:focusable="true" />
+        </LinearLayout>
 
         <ScrollView
             android:id="@+id/assistantScrollView"
@@ -284,15 +289,20 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:paddingStart="12dp"
-            android:paddingEnd="12dp"
-            android:paddingBottom="4dp"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
             android:gravity="center_vertical">
 
             <Button
                 android:id="@+id/btnAttach"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:paddingStart="10dp"
+                android:paddingEnd="10dp"
+                android:paddingTop="10dp"
+                android:paddingBottom="10dp"
                 android:backgroundTint="#FFFFFF"
                 android:textColor="@color/text_primary"
                 android:text="📎" />
@@ -301,7 +311,13 @@
                 android:id="@+id/btnMic"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="4dp"
+                android:layout_marginStart="2dp"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:paddingStart="10dp"
+                android:paddingEnd="10dp"
+                android:paddingTop="10dp"
+                android:paddingBottom="10dp"
                 android:backgroundTint="#FFFFFF"
                 android:textColor="@color/text_primary"
                 android:text="🎤" />
@@ -311,48 +327,58 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:layout_marginStart="8dp"
+                android:layout_marginStart="6dp"
+                android:layout_marginEnd="6dp"
                 android:background="@drawable/spinner_background"
                 android:hint="Escribe o dicta tu pregunta..."
                 android:inputType="textMultiLine|textCapSentences"
-                android:maxLines="4"
-                android:padding="10dp"
+                android:maxLines="3"
+                android:padding="8dp"
                 android:textColor="@color/text_primary"
                 android:textSize="15sp" />
+
+            <Button
+                android:id="@+id/btnSendPrompt"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:paddingTop="10dp"
+                android:paddingBottom="10dp"
+                android:backgroundTint="@color/english_color"
+                android:textColor="#FFFFFF"
+                android:enabled="false"
+                android:text="Enviar" />
         </LinearLayout>
 
-        <CheckBox
-            android:id="@+id/chkSpeakResponses"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="12dp"
-            android:layout_marginBottom="4dp"
-            android:text="🔊 Leer respuesta en voz alta"
-            android:textColor="@color/text_primary"
-            android:textSize="13sp" />
-
-        <CheckBox
-            android:id="@+id/chkWebSearch"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="12dp"
-            android:layout_marginBottom="4dp"
-            android:checked="true"
-            android:text="@string/chk_web_search"
-            android:textColor="@color/text_primary"
-            android:textSize="13sp" />
-
-        <Button
-            android:id="@+id/btnSendPrompt"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="12dp"
-            android:layout_marginEnd="12dp"
-            android:layout_marginBottom="12dp"
-            android:backgroundTint="@color/english_color"
-            android:textColor="#FFFFFF"
-            android:enabled="false"
-            android:text="Enviar" />
+            android:orientation="horizontal"
+            android:paddingStart="8dp"
+            android:paddingBottom="2dp">
+
+            <CheckBox
+                android:id="@+id/chkSpeakResponses"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:minHeight="32dp"
+                android:text="🔊 Leer en voz alta"
+                android:textColor="@color/text_primary"
+                android:textSize="12sp" />
+
+            <CheckBox
+                android:id="@+id/chkWebSearch"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:minHeight="32dp"
+                android:checked="true"
+                android:text="@string/chk_web_search"
+                android:textColor="@color/text_primary"
+                android:textSize="12sp" />
+        </LinearLayout>
     </LinearLayout>
 
     <!-- Banner de marca: visible debajo de las dos pestañas, abre maropal.es al tocarlo -->
@@ -363,7 +389,10 @@
         android:orientation="horizontal"
         android:gravity="center"
         android:background="#FFFFFF"
-        android:padding="8dp"
+        android:paddingTop="4dp"
+        android:paddingBottom="4dp"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp"
         android:clickable="true"
         android:focusable="true">
 
