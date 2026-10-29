@@ -40,6 +40,7 @@ import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -435,8 +436,12 @@ class MainActivity : AppCompatActivity() {
                 val buffer = ByteArray(2048)
                 while (grabacionActiva) {
                     val leidos = recorder.read(buffer, 0, buffer.size)
-                    if (leidos > 0) bufferGrabacion.write(buffer, 0, leidos)
+                    if (leidos > 0) {
+                        bufferGrabacion.write(buffer, 0, leidos)
+                        calcularNivelVoz(buffer, leidos)
+                    }
                 }
+                nivelVoz = 0f
             }
             true
         } catch (e: Exception) {
@@ -444,6 +449,61 @@ class MainActivity : AppCompatActivity() {
             audioRecord = null
             false
         }
+    }
+
+    // ---- Indicador "Escuchando…" dentro del recuadro de la conversación ----
+
+    /** Nivel de voz (0..1) del último fragmento grabado, para el medidor. */
+    @Volatile private var nivelVoz = 0f
+    private var indicadorView: TextView? = null
+    private var indicadorJob: Job? = null
+
+    /** Calcula el volumen (RMS) de un fragmento PCM de 16 bits y lo suaviza. */
+    private fun calcularNivelVoz(datos: ByteArray, bytes: Int) {
+        var suma = 0.0
+        var n = 0
+        var i = 0
+        while (i + 1 < bytes) {
+            val muestra = ((datos[i + 1].toInt() shl 8) or (datos[i].toInt() and 0xff)).toShort().toInt()
+            suma += muestra.toDouble() * muestra
+            n++
+            i += 2
+        }
+        if (n == 0) return
+        val rms = Math.sqrt(suma / n)
+        val objetivo = (rms / 3000.0).toFloat().coerceIn(0f, 1f)
+        nivelVoz = if (objetivo > nivelVoz) objetivo else nivelVoz * 0.85f
+    }
+
+    /** Muestra una burbuja temporal con el tiempo grabado y un medidor de voz. */
+    private fun mostrarIndicadorEscucha(contenedor: LinearLayout, scroll: ScrollView, colorHex: String, alignLeft: Boolean) {
+        ocultarIndicadorEscucha()
+        val vista = createBubbleView("🎙️ Escuchando… 0:00", colorHex, alignLeft)
+        vista.isClickable = false
+        vista.isFocusable = false
+        vista.typeface = android.graphics.Typeface.MONOSPACE
+        contenedor.addView(vista)
+        scroll.post { scroll.fullScroll(View.FOCUS_DOWN) }
+        indicadorView = vista
+        val inicio = android.os.SystemClock.elapsedRealtime()
+        indicadorJob = lifecycleScope.launch {
+            while (true) {
+                val seg = ((android.os.SystemClock.elapsedRealtime() - inicio) / 1000).toInt()
+                val barras = (nivelVoz * 10).toInt().coerceIn(0, 10)
+                vista.text = "🎙️ Escuchando… %d:%02d\n%s%s".format(
+                    seg / 60, seg % 60, "█".repeat(barras), "░".repeat(10 - barras)
+                )
+                delay(150)
+            }
+        }
+    }
+
+    /** Quita la burbuja temporal de "Escuchando…". */
+    private fun ocultarIndicadorEscucha() {
+        indicadorJob?.cancel()
+        indicadorJob = null
+        indicadorView?.let { (it.parent as? android.view.ViewGroup)?.removeView(it) }
+        indicadorView = null
     }
 
     /**
@@ -537,10 +597,12 @@ class MainActivity : AppCompatActivity() {
         val boton = if (idioma == langA) btnLangA else btnLangB
         boton.text = "🔴 Toca para parar"
         statusText.text = "Grabando en ${idioma.displayName}..."
+        mostrarIndicadorEscucha(transcriptContainer, scrollView, idioma.colorHex, idioma == langA)
     }
 
     private fun detenerGrabacionTraductor() {
         val idioma = idiomaGrabandoTraductor ?: return
+        ocultarIndicadorEscucha()
         grabandoTraductor = false
         idiomaGrabandoTraductor = null
         updateLanguageButtons()
@@ -614,9 +676,11 @@ class MainActivity : AppCompatActivity() {
         grabandoAsistente = true
         btnMic.text = "🔴"
         statusText.text = "Grabando en ${assistantVoiceLang.displayName}..."
+        mostrarIndicadorEscucha(assistantTranscript, assistantScrollView, "#607D8B", false)
     }
 
     private fun detenerGrabacionAsistente() {
+        ocultarIndicadorEscucha()
         grabandoAsistente = false
         btnMic.text = "🎤"
 
@@ -1352,6 +1416,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        ocultarIndicadorEscucha()
         grabacionActiva = false
         audioRecord?.release()
         tts.shutdown()
