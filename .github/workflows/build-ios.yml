@@ -33,9 +33,16 @@ jobs:
 
       - name: Compilar para el Simulador de iOS (sin firma)
         run: |
+          set -o pipefail
           xcodebuild -project SimulTransIOS.xcodeproj \
             -scheme SimulTransIOS \
             -sdk iphonesimulator \
             -destination 'generic/platform=iOS Simulator' \
             ARCHS=arm64 ONLY_ACTIVE_ARCH=YES \
-            build
+            build 2>&1 | tee build.log || {
+              # Publica los errores de Swift como avisos visibles en la pestaña del job.
+              grep -E "error:" build.log | sort -u | head -25 | while IFS= read -r linea; do
+                echo "::error::${linea}"
+              done
+              exit 1
+            }
