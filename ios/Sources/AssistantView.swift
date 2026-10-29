@@ -217,7 +217,10 @@ struct AssistantView: View {
                 } else if esSeguimiento, let previa = ultimaConsultaUsada {
                     var vistas = Set<String>()
                     var unidas: [String] = []
-                    for p in previa.split(separator: " ").map(String.init).filter({ $0.lowercased() != "resultado" }) + claves.split(separator: " ").map(String.init) {
+                    let palabrasPrevias: [String] = previa.split(separator: " ").map { String($0) }
+                    let palabrasNuevas: [String] = claves.split(separator: " ").map { String($0) }
+                    let todas: [String] = palabrasPrevias.filter { $0.lowercased() != "resultado" } + palabrasNuevas
+                    for p in todas {
                         if vistas.insert(p.lowercased()).inserted { unidas.append(p) }
                     }
                     consulta = String(unidas.joined(separator: " ").prefix(100))
