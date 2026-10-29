@@ -76,6 +76,14 @@ struct TranslatorView: View {
                         ForEach(mensajes) { mensaje in
                             burbuja(mensaje).id(mensaje.id)
                         }
+                        if grabando, let idioma = idiomaGrabando {
+                            HStack {
+                                if idioma != langA { Spacer(minLength: 40) }
+                                IndicadorEscucha(grabador: grabador, colorHex: idioma.colorHex)
+                                if idioma == langA { Spacer(minLength: 40) }
+                            }
+                            .id("escuchando")
+                        }
                     }
                     .padding()
                 }
@@ -83,6 +91,9 @@ struct TranslatorView: View {
                     if let ultimo = mensajes.last {
                         withAnimation { proxy.scrollTo(ultimo.id, anchor: .bottom) }
                     }
+                }
+                .onChange(of: grabando) { _, ahora in
+                    if ahora { withAnimation { proxy.scrollTo("escuchando", anchor: .bottom) } }
                 }
             }
 

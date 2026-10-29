@@ -158,6 +158,19 @@ actor TranslationEngine {
         return response.toString.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    /// Pregunta al Asistente en una conversación puntual (sin memoria). Se usa
+    /// cuando el mensaje es muy largo (resultados de Internet) para no llenar
+    /// la conversación viva, que tiene un límite de tokens.
+    func askOneShot(prompt: String, imagePaths: [String] = []) async throws -> String {
+        let engine = try requireEngine()
+        let config = ConversationConfig(systemMessage: Message(Self.instruccionAsistente))
+        let conversation = try await engine.createConversation(with: config)
+        var contenidos: [Content] = imagePaths.map { Content.imageFile($0) }
+        contenidos.append(Content.text(prompt))
+        let response = try await conversation.sendMessage(Message(contents: contenidos))
+        return response.toString.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     /// Olvida el contexto del Asistente (al borrar la conversación).
     func resetAssistantConversation() {
         assistantConversation = nil

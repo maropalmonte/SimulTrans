@@ -25,6 +25,7 @@ final class AudioRecorderService {
         ]
         Diagnostico.paso("Grabación: creando grabador")
         let r = try AVAudioRecorder(url: url, settings: settings)
+        r.isMeteringEnabled = true
         guard r.prepareToRecord(), r.record() else {
             throw NSError(domain: "AudioRecorderService", code: 1,
                           userInfo: [NSLocalizedDescriptionKey: "No se pudo iniciar la grabación"])
@@ -32,6 +33,14 @@ final class AudioRecorderService {
         recorder = r
         isRecording = true
         Diagnostico.paso("Grabación: en marcha")
+    }
+
+    /// Volumen de la voz entre 0 y 1, para el medidor de "Escuchando…".
+    func nivel() -> Float {
+        guard let r = recorder, r.isRecording else { return 0 }
+        r.updateMeters()
+        let db = r.averagePower(forChannel: 0) // de -160 (silencio) a 0 (máximo)
+        return max(0, min(1, (db + 50) / 40))
     }
 
     func stopRecording() {
