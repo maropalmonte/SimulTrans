@@ -44,11 +44,17 @@ struct AssistantView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                Text("Idioma de voz:").font(.footnote)
+                Text("Voz:").font(.subheadline)
                 Picker("Idioma de voz", selection: $idiomaVoz) {
                     ForEach(Idioma.todos) { Text($0.etiqueta).tag($0) }
                 }
                 .pickerStyle(.menu)
+                .font(.headline)
+                .lineLimit(1)
+                .fixedSize()
+                .padding(.horizontal, 6)
+                .background(Color(.secondarySystemBackground))
+                .cornerRadius(8)
                 Spacer()
                 Button {
                     synthesizer.stopSpeaking(at: .immediate)
@@ -133,8 +139,8 @@ struct AssistantView: View {
             .padding(.top, 6)
 
             HStack {
-                Toggle("🔊 Leer en voz alta", isOn: $leerEnVozAlta)
-                Toggle("🌐 Buscar en Internet", isOn: $busquedaWeb)
+                Toggle("🔊 Voz alta", isOn: $leerEnVozAlta)
+                Toggle("🌐 Internet", isOn: $busquedaWeb)
             }
             .font(.caption)
             .toggleStyle(CasillaCompacta())
