@@ -1,6 +1,7 @@
 name: SimulTransIOS
 options:
   bundleIdPrefix: es.maropal
+  developmentLanguage: en
 packages:
   LiteRTLM:
     url: https://github.com/google-ai-edge/LiteRT-LM
@@ -23,7 +24,9 @@ targets:
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         ITSAppUsesNonExemptEncryption: false
-        NSMicrophoneUsageDescription: "SimulTrans necesita el micrófono para traducir tu voz."
+        CFBundleDevelopmentRegion: en
+        CFBundleLocalizations: [en, es]
+        NSMicrophoneUsageDescription: "SimulTrans needs the microphone to translate your voice."
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: es.maropal.simultrans

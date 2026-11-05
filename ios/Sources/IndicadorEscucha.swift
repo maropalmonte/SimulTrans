@@ -22,6 +22,6 @@ struct IndicadorEscucha: View {
         let barras = min(10, max(0, Int((grabador.nivel() * 10).rounded())))
         let medidor = String(repeating: "█", count: barras) + String(repeating: "░", count: 10 - barras)
         let tiempo = "\(seg / 60):" + (seg % 60 < 10 ? "0" : "") + "\(seg % 60)"
-        return "🎙️ Escuchando… \(tiempo)\n\(medidor)"
+        return L("🎙️ Escuchando… %@\n%@", tiempo, medidor)
     }
 }

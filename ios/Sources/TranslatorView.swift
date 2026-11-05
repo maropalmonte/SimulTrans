@@ -8,14 +8,14 @@ import AVFoundation
 struct TranslatorView: View {
     let engine: TranslationEngine
 
-    @State private var langA: Idioma = .espanol
-    @State private var langB: Idioma = .ingles
+    @State private var langA: Idioma = Idioma.delDispositivo()
+    @State private var langB: Idioma = Idioma.delDispositivo() == .ingles ? .espanol : .ingles
     @State private var mensajes: [MensajeTraduccion] = []
 
     @State private var grabando = false
     @State private var idiomaGrabando: Idioma?
     @State private var isBusy = false
-    @State private var statusMessage = "Listo."
+    @State private var statusMessage = L("Listo.")
 
     private let grabador = AudioRecorderService()
     private let synthesizer = AVSpeechSynthesizer()
@@ -127,7 +127,7 @@ struct TranslatorView: View {
         Button {
             onLangButtonTap(idioma)
         } label: {
-            Text(estaGrabandoEste ? "🔴 Toca para parar" : "Hablar en \(idioma.etiqueta)")
+            Text(estaGrabandoEste ? L("🔴 Toca para parar") : L("Hablar en %@", idioma.etiqueta))
                 .frame(maxWidth: .infinity)
                 .padding()
                 .background(Color(hex: idioma.colorHex))
@@ -159,7 +159,7 @@ struct TranslatorView: View {
             if concedido {
                 iniciarGrabacion(idioma)
             } else {
-                statusMessage = "Falta el permiso de micrófono."
+                statusMessage = L("Falta el permiso de micrófono.")
             }
         }
     }
@@ -170,9 +170,9 @@ struct TranslatorView: View {
             try grabador.startRecording(to: urlGrabacionTemporal())
             grabando = true
             idiomaGrabando = idioma
-            statusMessage = "Grabando... toca de nuevo para traducir"
+            statusMessage = L("Grabando... toca de nuevo para traducir")
         } catch {
-            statusMessage = "No se pudo iniciar la grabación: \(error.localizedDescription)"
+            statusMessage = L("No se pudo iniciar la grabación: %@", error.localizedDescription)
         }
     }
 
@@ -183,7 +183,7 @@ struct TranslatorView: View {
         grabando = false
         idiomaGrabando = nil
         isBusy = true
-        statusMessage = "Traduciendo..."
+        statusMessage = L("Traduciendo...")
 
         let rutaAudio = urlGrabacionTemporal().path
         let otro = idioma == langA ? langB : langA
@@ -199,7 +199,7 @@ struct TranslatorView: View {
                 ) {
                     if par.original.isEmpty {
                         isBusy = false
-                        statusMessage = "Listo."
+                        statusMessage = L("Listo.")
                         return
                     }
                     agregarMensaje(texto: par.original, idioma: idioma, alineadoIzquierda: idioma == langA)
@@ -210,21 +210,21 @@ struct TranslatorView: View {
                     let texto = try await engine.transcribe(audioPath: rutaAudio, languageName: desde)
                     if texto.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                         isBusy = false
-                        statusMessage = "Listo."
+                        statusMessage = L("Listo.")
                         return
                     }
                     agregarMensaje(texto: texto, idioma: idioma, alineadoIzquierda: idioma == langA)
-                    statusMessage = "Traduciendo..."
+                    statusMessage = L("Traduciendo...")
                     let traduccion = try await engine.translate(text: texto, fromLangName: desde, toLangName: hacia)
                     agregarMensaje(texto: traduccion, idioma: otro, alineadoIzquierda: otro == langA)
                     hablar(traduccion, idioma: otro)
                 }
             } catch {
-                statusMessage = "Error: \(error.localizedDescription)"
+                statusMessage = L("Error: %@", error.localizedDescription)
             }
             isBusy = false
-            if statusMessage.hasPrefix("Traduciendo") || statusMessage.hasPrefix("Transcribiendo") {
-                statusMessage = "Listo."
+            if statusMessage == L("Traduciendo...") || statusMessage == L("Transcribiendo...") {
+                statusMessage = L("Listo.")
             }
         }
     }

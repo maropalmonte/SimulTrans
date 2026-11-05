@@ -10,8 +10,22 @@ struct Idioma: Identifiable, Hashable, Codable {
     let colorHex: String
     let bandera: String
 
+    /// Nombre del idioma en el idioma de la interfaz (Español / Spanish…).
+    var nombre: String {
+        let codigo = String(ttsLanguageCode.prefix(2))
+        let interfaz = Locale(identifier: Bundle.main.preferredLocalizations.first ?? "en")
+        guard let n = interfaz.localizedString(forLanguageCode: codigo), let primera = n.first else { return displayName }
+        return primera.uppercased() + n.dropFirst()
+    }
+
     /// Texto para la interfaz (bandera + nombre). El prompt usa displayName.
-    var etiqueta: String { "\(bandera) \(displayName)" }
+    var etiqueta: String { "\(bandera) \(nombre)" }
+
+    /// El idioma del iPhone si la app lo soporta; si no, inglés.
+    static func delDispositivo() -> Idioma {
+        let codigo = String((Locale.preferredLanguages.first ?? "en").prefix(2)).lowercased()
+        return todos.first { $0.ttsLanguageCode.lowercased().hasPrefix(codigo + "-") } ?? .ingles
+    }
 
     static let espanol  = Idioma(id: "ESPANOL",  displayName: "Español",  ttsLanguageCode: "es-ES", colorHex: "#C60B1E", bandera: "🇪🇸")
     static let ingles   = Idioma(id: "INGLES",   displayName: "Inglés",   ttsLanguageCode: "en-US", colorHex: "#00247D", bandera: "🇬🇧")

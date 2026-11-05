@@ -82,7 +82,7 @@ final class ModelDownloader: NSObject, ObservableObject {
     func empezar() {
         guard estado != .descargando else { return }
         if ModelStore.freeSpace() < 3_500_000_000 {
-            estado = .error("No hay espacio suficiente. Libera al menos 3,5 GB e inténtalo de nuevo.")
+            estado = .error(L("No hay espacio suficiente. Libera al menos 3,5 GB e inténtalo de nuevo."))
             return
         }
         bytes = 0
@@ -130,13 +130,13 @@ extension ModelDownloader: URLSessionDownloadDelegate {
     nonisolated func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask,
                                 didFinishDownloadingTo location: URL) {
         if let http = downloadTask.response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
-            publicar(.error("El servidor respondió con el código \(http.statusCode). Inténtalo de nuevo más tarde."))
+            publicar(.error(L("El servidor respondió con el código %ld. Inténtalo de nuevo más tarde.", http.statusCode)))
             return
         }
         let attrs = try? FileManager.default.attributesOfItem(atPath: location.path)
         let tam = (attrs?[.size] as? NSNumber)?.int64Value ?? 0
         guard tam > ModelStore.minimumBytes else {
-            publicar(.error("La descarga está incompleta. Inténtalo de nuevo."))
+            publicar(.error(L("La descarga está incompleta. Inténtalo de nuevo.")))
             return
         }
         do {
@@ -149,7 +149,7 @@ extension ModelDownloader: URLSessionDownloadDelegate {
             try? FileManager.default.removeItem(at: ModelStore.resumeURL)
             publicar(.completado)
         } catch {
-            publicar(.error("No se pudo guardar el modelo: \(error.localizedDescription)"))
+            publicar(.error(L("No se pudo guardar el modelo: %@", error.localizedDescription)))
         }
     }
 
@@ -162,6 +162,6 @@ extension ModelDownloader: URLSessionDownloadDelegate {
         } else {
             try? FileManager.default.removeItem(at: ModelStore.resumeURL)
         }
-        publicar(.error("Descarga interrumpida: \(ns.localizedDescription)\nPulsa de nuevo el botón para reanudarla."))
+        publicar(.error(L("Descarga interrumpida: %@\nPulsa de nuevo el botón para reanudarla.", ns.localizedDescription)))
     }
 }

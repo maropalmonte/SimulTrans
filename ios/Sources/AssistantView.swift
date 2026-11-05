@@ -11,7 +11,7 @@ import UniformTypeIdentifiers
 struct AssistantView: View {
     let engine: TranslationEngine
 
-    @State private var idiomaVoz: Idioma = .espanol
+    @State private var idiomaVoz: Idioma = Idioma.delDispositivo()
     @State private var mensajes: [MensajeTraduccion] = []
     @State private var texto = ""
     @State private var estado = ""
@@ -168,11 +168,11 @@ struct AssistantView: View {
         if pregunta.lowercased() == "/debug" {
             debugActivo.toggle()
             texto = ""
-            estado = debugActivo ? "Modo depuración activado" : "Modo depuración desactivado"
+            estado = debugActivo ? L("Modo depuración activado") : L("Modo depuración desactivado")
             return
         }
 
-        let visible = pregunta.isEmpty ? "(adjunto)" : pregunta
+        let visible = pregunta.isEmpty ? L("(adjunto)") : pregunta
         let adjuntoEtiqueta = nombreAdjunto.map { "\n📎 \($0)" } ?? ""
         agregar("\(visible)\(adjuntoEtiqueta)", asistente: false)
 
@@ -195,7 +195,7 @@ struct AssistantView: View {
         texto = ""
         quitarAdjunto()
         ocupado = true
-        estado = "Pensando..."
+        estado = L("Pensando...")
 
         Task {
             var promptConBusqueda = promptFinal
@@ -207,15 +207,15 @@ struct AssistantView: View {
             var avisoSinRed = ""
 
             if buscarEnInternet {
-                estado = "Buscando en Internet..."
+                estado = L("Buscando en Internet...")
                 let claves = BuscadorWeb.palabrasClave(pregunta)
                 // Pregunta corta o orden de buscar ("búscala por internet"): se suma el tema anterior.
                 let esOrden = pregunta.count < 60 &&
-                    pregunta.range(of: "b[uú]sca(la|lo|me)?\\b|internet|mira en|consulta", options: [.regularExpression, .caseInsensitive]) != nil
+                    pregunta.range(of: "b[uú]sca(la|lo|me)?\\b|internet|mira en|consulta|search|look up|google", options: [.regularExpression, .caseInsensitive]) != nil
                 let palabrasClave = claves.split(separator: " ").map { $0.lowercased() }
                 let pocasClaves = palabrasClave.filter { $0 != "resultado" && $0 != "goles" }.count <= 3
                 let esSeguimiento = ultimaConsultaUsada != nil && (esOrden || (pregunta.count < 60 && pocasClaves))
-                let reciente = pregunta.range(of: "ayer|hoy|anoche|esta semana|últim|reciente|ahora mismo|actual", options: [.regularExpression, .caseInsensitive]) != nil
+                let reciente = pregunta.range(of: "ayer|hoy|anoche|esta semana|últim|reciente|ahora mismo|actual|yesterday|today|tonight|this week|latest|recent|right now|current", options: [.regularExpression, .caseInsensitive]) != nil
                     || (esSeguimiento && ultimaReciente)
                 var consulta = claves
                 if esOrden, let previa = ultimaConsultaUsada {
@@ -248,19 +248,19 @@ struct AssistantView: View {
                     if !esSeguimiento || usada == claves { ultimaConsultaUsada = usada }
                     ultimaReciente = reciente
                 } else {
-                    avisoSinRed = "\n\n(No he encontrado nada en Internet sobre esto; respondo con lo que sé, que puede estar desactualizado.)"
+                    avisoSinRed = L("\n\n(No he encontrado nada en Internet sobre esto; respondo con lo que sé, que puede estar desactualizado.)")
                 }
-                estado = "Pensando..."
+                estado = L("Pensando...")
             }
 
             do {
                 Diagnostico.paso("Asistente: enviando pregunta al modelo")
-                let preguntaPorGol = pregunta.range(of: "marc[oó]|met[ií]o|anot[oó]|\\bgol|goleador", options: [.regularExpression, .caseInsensitive]) != nil
+                let preguntaPorGol = pregunta.range(of: "marc[oó]|met[ií]o|anot[oó]|\\bgol|goleador|scored|\\bgoals?\\b", options: [.regularExpression, .caseInsensitive]) != nil
                 var respuesta: String
                 var reiniciada: Bool
                 if huboBusqueda, preguntaPorGol, let goleador {
                     // Respuesta directa con el nombre extraído de las noticias: el modelo pequeño lo inventa.
-                    respuesta = "El gol lo marcó \(goleador), según las noticias encontradas."
+                    respuesta = L("El gol lo marcó %@, según las noticias encontradas.", goleador)
                     reiniciada = true
                 } else {
                     (respuesta, reiniciada) = try await responder(
@@ -282,8 +282,7 @@ struct AssistantView: View {
                         dudosos = datosNoRespaldados(respuesta, fuente: textoFuentes + " " + pregunta)
                         let hayNumero = dudosos.contains { d in d.allSatisfy { $0.isNumber } }
                         if !dudosos.isEmpty && (hayNumero || dudosos.count >= 2) {
-                            respuesta = "No estoy seguro de la respuesta: los textos que he encontrado no la confirman con claridad. " +
-                                "Esto es lo que dicen los titulares:\n" +
+                            respuesta = L("No estoy seguro de la respuesta: los textos que he encontrado no la confirman con claridad. Esto es lo que dicen los titulares:\n") +
                                 titularesFuentes.components(separatedBy: "\n").prefix(4).joined(separator: "\n")
                         }
                     }
@@ -294,7 +293,7 @@ struct AssistantView: View {
                 if reiniciada { contextoPendiente = resumenReciente(excluirUltima: false) }
                 if leerEnVozAlta { hablar(respuesta) }
             } catch {
-                agregar("Error: \(error.localizedDescription)", asistente: true)
+                agregar(L("Error: %@", error.localizedDescription), asistente: true)
             }
             ocupado = false
             estado = ""
@@ -373,7 +372,7 @@ struct AssistantView: View {
                 try? jpg.write(to: url)
                 textoAdjunto = nil
                 rutaImagen = url.path
-                nombreAdjunto = "Imagen"
+                nombreAdjunto = L("Imagen")
             }
         }
     }
@@ -399,14 +398,14 @@ struct AssistantView: View {
                 textoAdjunto = String(contenido.prefix(12000))
                 nombreAdjunto = nombre
             } else {
-                estado = "No se pudo leer texto del PDF."
+                estado = L("No se pudo leer texto del PDF.")
             }
         } else if let contenido = try? String(contentsOf: url, encoding: .utf8) {
             rutaImagen = nil
             textoAdjunto = String(contenido.prefix(12000))
             nombreAdjunto = nombre
         } else {
-            estado = "Tipo de archivo no admitido."
+            estado = L("Tipo de archivo no admitido.")
         }
     }
 
@@ -421,7 +420,7 @@ struct AssistantView: View {
             grabador.stopRecording()
             grabando = false
             ocupado = true
-            estado = "Transcribiendo..."
+            estado = L("Transcribiendo...")
             let ruta = urlDictado().path
             let idioma = idiomaVoz.displayName.lowercased()
             Task {
@@ -430,23 +429,23 @@ struct AssistantView: View {
                     let t = try await engine.transcribe(audioPath: ruta, languageName: idioma)
                     texto = t
                 } catch {
-                    estado = "Error: \(error.localizedDescription)"
+                    estado = L("Error: %@", error.localizedDescription)
                 }
                 ocupado = false
-                if estado.hasPrefix("Transcribiendo") { estado = "" }
+                if estado == L("Transcribiendo...") { estado = "" }
             }
         } else {
             Task { @MainActor in
                 Diagnostico.paso("Asistente: pidiendo permiso de micrófono")
                 let concedido = await AVAudioApplication.requestRecordPermission()
                 Diagnostico.paso("Asistente: permiso de micrófono = \(concedido)")
-                guard concedido else { estado = "Falta el permiso de micrófono."; return }
+                guard concedido else { estado = L("Falta el permiso de micrófono."); return }
                 do {
                     try grabador.startRecording(to: urlDictado())
                     grabando = true
-                    estado = "Grabando... toca 🔴 para terminar"
+                    estado = L("Grabando... toca 🔴 para terminar")
                 } catch {
-                    estado = "No se pudo grabar: \(error.localizedDescription)"
+                    estado = L("No se pudo grabar: %@", error.localizedDescription)
                 }
             }
         }

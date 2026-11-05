@@ -5,7 +5,7 @@ struct ContentView: View {
     @StateObject private var descarga = ModelDownloader()
     @State private var modelReady: Bool
     @State private var cargando = false
-    @State private var statusMessage = "SimulTrans necesita un modelo de IA (2,6 GB) que se descarga una sola vez. Después funciona sin conexión."
+    @State private var statusMessage = L("SimulTrans necesita un modelo de IA (2,6 GB) que se descarga una sola vez. Después funciona sin conexión.")
     @State private var showingPicker = false
     @State private var confirmarDescarga = false
     @State private var engine: TranslationEngine?
@@ -51,14 +51,14 @@ struct ContentView: View {
         .alert("Licencias y créditos", isPresented: $mostrarLicencias) {
             Button("Cerrar", role: .cancel) {}
         } message: {
-            Text("SimulTrans usa estos componentes de código abierto:\n\n• Modelo de IA Gemma 4 E2B © Google, licencia Apache 2.0.\n• Motor LiteRT-LM © Google, licencia Apache 2.0.\n\nLa licencia Apache 2.0 está en www.apache.org/licenses/LICENSE-2.0.\n\nSimulTrans es un producto de Gestión y Software Maropal, S.L. y no está desarrollado ni avalado por Google.")
+            Text("SimulTrans usa estos componentes de código abierto:\n\n• Modelo de IA Gemma 4 E2B © Google, licencia Apache 2.0.\n• Motor LiteRT-LM © Google, licencia Apache 2.0.\n• Búsqueda en Internet del asistente: datos de Wikipedia (licencia CC BY-SA 4.0) y titulares de Google News, usados solo como contexto de la respuesta.\n\nLa licencia Apache 2.0 está en www.apache.org/licenses/LICENSE-2.0.\n\nSimulTrans es un producto de Gestión y Software Maropal, S.L. y no está desarrollado ni avalado por Google.")
         }
         .fileImporter(isPresented: $showingPicker, allowedContentTypes: [.item]) { result in
             switch result {
             case .success(let url):
                 copiarYCargarModelo(desde: url)
             case .failure(let error):
-                statusMessage = "Error al elegir archivo: \(error.localizedDescription)"
+                statusMessage = L("Error al elegir archivo: %@", error.localizedDescription)
             }
         }
         .confirmationDialog("Descargar el modelo de IA", isPresented: $confirmarDescarga, titleVisibility: .visible) {
@@ -160,8 +160,8 @@ struct ContentView: View {
         let f = ByteCountFormatter()
         f.countStyle = .file
         let hecho = f.string(fromByteCount: descarga.bytes)
-        let total = descarga.total > 0 ? f.string(fromByteCount: descarga.total) : "2,6 GB"
-        return "\(Int(descarga.progreso * 100)) % · \(hecho) de \(total)"
+        let total = f.string(fromByteCount: descarga.total > 0 ? descarga.total : 2_600_000_000)
+        return L("%ld %% · %@ de %@", Int(descarga.progreso * 100), hecho, total)
     }
 
     // MARK: - Carga del modelo
@@ -170,7 +170,7 @@ struct ContentView: View {
     private func cargarModelo() async {
         guard !cargando else { return }
         cargando = true
-        statusMessage = "Cargando el modelo..."
+        statusMessage = L("Cargando el modelo...")
         defer { cargando = false }
         do {
             Diagnostico.paso("Modelo: cargando")
@@ -181,13 +181,13 @@ struct ContentView: View {
             modelReady = true
         } catch {
             Diagnostico.paso("Modelo: error \(error.localizedDescription)")
-            statusMessage = "Error al cargar el modelo: \(error.localizedDescription)"
+            statusMessage = L("Error al cargar el modelo: %@", error.localizedDescription)
         }
     }
 
     private func copiarYCargarModelo(desde url: URL) {
         cargando = true
-        statusMessage = "Copiando el modelo... puede tardar unos minutos"
+        statusMessage = L("Copiando el modelo... puede tardar unos minutos")
         Task {
             do {
                 try await Task.detached {
@@ -204,7 +204,7 @@ struct ContentView: View {
                 await cargarModelo()
             } catch {
                 cargando = false
-                statusMessage = "Error al copiar el modelo: \(error.localizedDescription)"
+                statusMessage = L("Error al copiar el modelo: %@", error.localizedDescription)
             }
         }
     }
