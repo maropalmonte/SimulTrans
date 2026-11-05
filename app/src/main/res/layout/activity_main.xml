@@ -101,7 +101,7 @@
             android:layout_marginEnd="4dp"
             android:backgroundTint="#FFFFFF"
             android:textColor="@color/text_primary"
-            android:text="Traductor" />
+            android:text="@string/tab_translator" />
 
         <Button
             android:id="@+id/tabAssistant"
@@ -114,7 +114,7 @@
             android:layout_marginStart="4dp"
             android:backgroundTint="#FFFFFF"
             android:textColor="@color/text_primary"
-            android:text="Asistente IA" />
+            android:text="@string/tab_assistant" />
     </LinearLayout>
 
     <!-- ==================== PESTAÑA TRADUCTOR ==================== -->
@@ -162,7 +162,7 @@
             android:layout_marginTop="6dp"
             android:layout_marginEnd="12dp"
             android:padding="8dp"
-            android:text="Borrar conversación"
+            android:text="@string/btn_clear_conv"
             android:textColor="@color/spanish_color"
             android:textSize="13sp"
             android:clickable="true"
@@ -234,7 +234,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Voz:"
+                android:text="@string/voice_label"
                 android:textColor="@color/text_primary"
                 android:textSize="13sp"
                 android:layout_marginEnd="8dp" />
@@ -251,7 +251,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:padding="10dp"
-                android:text="🗑 Borrar"
+                android:text="@string/btn_clear_short"
                 android:textColor="@color/spanish_color"
                 android:textSize="13sp"
                 android:clickable="true"
@@ -330,7 +330,7 @@
                 android:layout_marginStart="6dp"
                 android:layout_marginEnd="6dp"
                 android:background="@drawable/spinner_background"
-                android:hint="Escribe o dicta tu pregunta..."
+                android:hint="@string/prompt_hint"
                 android:inputType="textMultiLine|textCapSentences"
                 android:maxLines="3"
                 android:padding="8dp"
@@ -350,7 +350,7 @@
                 android:backgroundTint="@color/english_color"
                 android:textColor="#FFFFFF"
                 android:enabled="false"
-                android:text="Enviar" />
+                android:text="@string/btn_send" />
         </LinearLayout>
 
         <LinearLayout
@@ -365,7 +365,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:minHeight="32dp"
-                android:text="🔊 Leer en voz alta"
+                android:text="@string/chk_speak"
                 android:textColor="@color/text_primary"
                 android:textSize="12sp" />
 
@@ -416,7 +416,7 @@
             android:layout_height="wrap_content"
             android:layout_marginStart="12dp"
             android:padding="4dp"
-            android:text="Licencias"
+            android:text="@string/btn_licenses"
             android:textColor="@color/spanish_color"
             android:textSize="12sp"
             android:clickable="true"

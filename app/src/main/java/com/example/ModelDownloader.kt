@@ -14,6 +14,10 @@ import kotlin.coroutines.coroutineContext
  * y lo deja listo en [destino]. Si se corta (sin red, app cerrada, cancelar),
  * conserva el archivo parcial ".part" y la siguiente vez continúa por donde iba.
  */
+/** Mensaje en español si el móvil está en español; en inglés en los demás casos. */
+private fun tr(es: String, en: String): String =
+    if (java.util.Locale.getDefault().language == "es") es else en
+
 object ModelDownloader {
     const val MODEL_URL =
         "https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm"
@@ -45,10 +49,10 @@ object ModelDownloader {
                 val code = c.responseCode
                 if (code in listOf(301, 302, 303, 307, 308)) {
                     val destinoRedir = c.getHeaderField("Location")
-                        ?: throw IOException("Redirección sin destino")
+                        ?: throw IOException(tr("Redirección sin destino", "Redirect without destination"))
                     c.disconnect()
                     url = URL(url, destinoRedir)
-                    if (++redirecciones > 6) throw IOException("Demasiadas redirecciones")
+                    if (++redirecciones > 6) throw IOException(tr("Demasiadas redirecciones", "Too many redirects"))
                     continue
                 }
                 if (code == 416 && existente > 0) {
@@ -62,7 +66,7 @@ object ModelDownloader {
                 }
                 if (code != 200 && code != 206) {
                     c.disconnect()
-                    throw IOException("El servidor respondió con el error $code")
+                    throw IOException(tr("El servidor respondió con el error $code", "The server answered with error $code"))
                 }
                 conexion = c
                 break
@@ -101,9 +105,9 @@ object ModelDownloader {
 
             if (part.length() < MIN_BYTES || (total > 0 && part.length() != total)) {
                 // Corte a mitad: se conserva el parcial para reanudar.
-                throw IOException("La descarga se interrumpió. Vuelve a pulsar para continuar.")
+                throw IOException(tr("La descarga se interrumpió. Vuelve a pulsar para continuar.", "The download was interrupted. Tap again to continue."))
             }
             if (destino.exists()) destino.delete()
-            if (!part.renameTo(destino)) throw IOException("No se pudo guardar el modelo descargado")
+            if (!part.renameTo(destino)) throw IOException(tr("No se pudo guardar el modelo descargado", "Could not save the downloaded model"))
         }
 }

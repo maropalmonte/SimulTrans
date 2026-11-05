@@ -106,10 +106,22 @@ enum class Idioma(
     RUMANO("Rumano", "ro-RO", Locale("ro", "RO"), "#002B7F", "🇷🇴"),
     POLACO("Polaco", "pl-PL", Locale("pl", "PL"), "#DC143C", "🇵🇱");
 
+    /** Nombre del idioma en el idioma de la interfaz (Español / Spanish…). */
+    val nombre: String get() {
+        val loc = Locale.getDefault()
+        return ttsLocale.getDisplayLanguage(loc).replaceFirstChar { it.titlecase(loc) }
+    }
+
     /** Texto para la interfaz (bandera + nombre). El prompt usa displayName. */
-    val etiqueta: String get() = "$bandera $displayName"
+    val etiqueta: String get() = "$bandera $nombre"
 
     override fun toString(): String = etiqueta
+
+    companion object {
+        /** El idioma del móvil si la app lo soporta; si no, inglés. */
+        fun delDispositivo(): Idioma =
+            values().firstOrNull { it.ttsLocale.language == Locale.getDefault().language } ?: INGLES
+    }
 }
 
 class MainActivity : AppCompatActivity() {
@@ -158,11 +170,11 @@ class MainActivity : AppCompatActivity() {
     private lateinit var prefs: SharedPreferences
 
     // Pareja de idiomas activa en la conversación del Traductor.
-    private var langA: Idioma = Idioma.ESPANOL
-    private var langB: Idioma = Idioma.INGLES
+    private var langA: Idioma = Idioma.delDispositivo()
+    private var langB: Idioma = if (langA == Idioma.INGLES) Idioma.ESPANOL else Idioma.INGLES
 
     // Idioma de voz del Asistente IA (dictado y lectura de respuestas).
-    private var assistantVoiceLang: Idioma = Idioma.ESPANOL
+    private var assistantVoiceLang: Idioma = Idioma.delDispositivo()
 
     private var isBusy = false
     private var modelReady = false
@@ -204,7 +216,7 @@ class MainActivity : AppCompatActivity() {
         ActivityResultContracts.RequestPermission()
     ) { granted ->
         if (!granted) {
-            statusText.text = "Se necesita permiso de micrófono para funcionar."
+            statusText.text = getString(R.string.mic_needed)
         }
     }
 
@@ -283,7 +295,7 @@ class MainActivity : AppCompatActivity() {
             AlertDialog.Builder(this)
                 .setTitle(R.string.licencias_titulo)
                 .setMessage(R.string.licencias_texto)
-                .setPositiveButton("Cerrar", null)
+                .setPositiveButton(R.string.btn_close, null)
                 .show()
         }
         btnClearAssistantHistory.setOnClickListener { clearAssistantHistory() }
@@ -357,18 +369,18 @@ class MainActivity : AppCompatActivity() {
             val scroll = ScrollView(this).apply { addView(textView) }
 
             AlertDialog.Builder(this)
-                .setTitle("La app se cerró por un error")
+                .setTitle(R.string.crash_title)
                 .setView(scroll)
-                .setPositiveButton("Copiar") { _, _ ->
+                .setPositiveButton(R.string.btn_copy) { _, _ ->
                     val clipboard = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
                     clipboard.setPrimaryClip(ClipData.newPlainText("Error SimulTrans", texto))
-                    Toast.makeText(this, "Copiado", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, R.string.copied, Toast.LENGTH_SHORT).show()
                 }
-                .setNegativeButton("Cerrar", null)
+                .setNegativeButton(R.string.btn_close, null)
                 .setCancelable(true)
                 .show()
         } catch (e: Exception) {
-            Toast.makeText(this, "Error guardado pero no se pudo mostrar: ${e.message}", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, getString(R.string.crash_show_failed, "${e.message}"), Toast.LENGTH_LONG).show()
         }
     }
 
@@ -403,7 +415,7 @@ class MainActivity : AppCompatActivity() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
             != PackageManager.PERMISSION_GRANTED
         ) {
-            statusText.text = "Falta el permiso de micrófono."
+            statusText.text = getString(R.string.mic_permission_missing)
             requestMicPermission.launch(Manifest.permission.RECORD_AUDIO)
             return false
         }
@@ -424,7 +436,7 @@ class MainActivity : AppCompatActivity() {
             )
             if (recorder.state != android.media.AudioRecord.STATE_INITIALIZED) {
                 recorder.release()
-                throw IllegalStateException("No se pudo inicializar el micrófono")
+                throw IllegalStateException(getString(R.string.mic_init_failed))
             }
 
             bufferGrabacion.reset()
@@ -445,7 +457,7 @@ class MainActivity : AppCompatActivity() {
             }
             true
         } catch (e: Exception) {
-            statusText.text = "No se pudo iniciar la grabación: ${e.message}"
+            statusText.text = getString(R.string.rec_start_failed, "${e.message}")
             audioRecord = null
             false
         }
@@ -490,8 +502,8 @@ class MainActivity : AppCompatActivity() {
             while (true) {
                 val seg = ((android.os.SystemClock.elapsedRealtime() - inicio) / 1000).toInt()
                 val barras = (nivelVoz * 10).toInt().coerceIn(0, 10)
-                vista.text = "🎙️ Escuchando… %d:%02d\n%s%s".format(
-                    seg / 60, seg % 60, "█".repeat(barras), "░".repeat(10 - barras)
+                vista.text = getString(
+                    R.string.listening_timer, seg / 60, seg % 60, "█".repeat(barras), "░".repeat(10 - barras)
                 )
                 delay(150)
             }
@@ -595,8 +607,8 @@ class MainActivity : AppCompatActivity() {
         grabandoTraductor = true
         idiomaGrabandoTraductor = idioma
         val boton = if (idioma == langA) btnLangA else btnLangB
-        boton.text = "🔴 Toca para parar"
-        statusText.text = "Grabando en ${idioma.displayName}..."
+        boton.text = getString(R.string.btn_tap_stop)
+        statusText.text = getString(R.string.recording_in, idioma.nombre)
         mostrarIndicadorEscucha(transcriptContainer, scrollView, idioma.colorHex, idioma == langA)
     }
 
@@ -609,7 +621,7 @@ class MainActivity : AppCompatActivity() {
 
         isBusy = true
         progressBar.visibility = View.VISIBLE
-        statusText.text = "Transcribiendo..."
+        statusText.text = getString(R.string.transcribing)
 
         lifecycleScope.launch {
             val archivo = detenerGrabacionYObtenerArchivo()
@@ -656,7 +668,7 @@ class MainActivity : AppCompatActivity() {
             } catch (e: Exception) {
                 isBusy = false
                 progressBar.visibility = View.GONE
-                statusText.text = "Error al transcribir: ${e.message}"
+                statusText.text = getString(R.string.err_transcribe, "${e.message}")
             }
         }
     }
@@ -675,7 +687,7 @@ class MainActivity : AppCompatActivity() {
         if (!iniciarGrabacion()) return
         grabandoAsistente = true
         btnMic.text = "🔴"
-        statusText.text = "Grabando en ${assistantVoiceLang.displayName}..."
+        statusText.text = getString(R.string.recording_in, assistantVoiceLang.nombre)
         mostrarIndicadorEscucha(assistantTranscript, assistantScrollView, "#607D8B", false)
     }
 
@@ -686,7 +698,7 @@ class MainActivity : AppCompatActivity() {
 
         isBusy = true
         progressBar.visibility = View.VISIBLE
-        statusText.text = "Transcribiendo..."
+        statusText.text = getString(R.string.transcribing)
 
         lifecycleScope.launch {
             val archivo = detenerGrabacionYObtenerArchivo()
@@ -713,7 +725,7 @@ class MainActivity : AppCompatActivity() {
             } catch (e: Exception) {
                 isBusy = false
                 progressBar.visibility = View.GONE
-                statusText.text = "Error al transcribir: ${e.message}"
+                statusText.text = getString(R.string.err_transcribe, "${e.message}")
             }
         }
     }
@@ -724,7 +736,7 @@ class MainActivity : AppCompatActivity() {
         val adapter = ArrayAdapter(this, R.layout.spinner_item, nombres)
         adapter.setDropDownViewResource(R.layout.spinner_item)
         spinnerAssistantLang.adapter = adapter
-        spinnerAssistantLang.setSelection(Idioma.ESPANOL.ordinal)
+        spinnerAssistantLang.setSelection(assistantVoiceLang.ordinal)
 
         spinnerAssistantLang.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
@@ -753,7 +765,7 @@ class MainActivity : AppCompatActivity() {
                             }
                             pendingImages = listOf(imgFile)
                             pendingTextContext = null
-                            pendingAttachmentLabel = "📎 Imagen adjunta"
+                            pendingAttachmentLabel = getString(R.string.attach_image)
                         }
                         mimeType == "application/pdf" -> {
                             val pdfFile = File(cacheDir, "attachment.pdf")
@@ -763,13 +775,13 @@ class MainActivity : AppCompatActivity() {
                             val paginas = rasterizePdf(pdfFile, maxPages = 5)
                             pendingImages = paginas
                             pendingTextContext = null
-                            pendingAttachmentLabel = "📎 PDF adjunto (${paginas.size} página/s)"
+                            pendingAttachmentLabel = getString(R.string.attach_pdf, paginas.size)
                         }
                         mimeType == "text/plain" -> {
                             val texto = contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } ?: ""
                             pendingImages = emptyList()
                             pendingTextContext = texto
-                            pendingAttachmentLabel = "📎 Documento de texto adjunto"
+                            pendingAttachmentLabel = getString(R.string.attach_text)
                         }
                         else -> {
                             pendingAttachmentLabel = null
@@ -779,7 +791,7 @@ class MainActivity : AppCompatActivity() {
                 txtAttachment.text = pendingAttachmentLabel
                 txtAttachment.visibility = if (pendingAttachmentLabel != null) View.VISIBLE else View.GONE
             } catch (e: Exception) {
-                Toast.makeText(this@MainActivity, "No se pudo leer el archivo: ${e.message}", Toast.LENGTH_LONG).show()
+                Toast.makeText(this@MainActivity, getString(R.string.file_read_failed, "${e.message}"), Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -825,7 +837,7 @@ class MainActivity : AppCompatActivity() {
             val activo = !prefs.getBoolean("debug", false)
             prefs.edit().putBoolean("debug", activo).apply()
             promptInput.setText("")
-            Toast.makeText(this, if (activo) "Modo depuración activado" else "Modo depuración desactivado", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, getString(if (activo) R.string.debug_on else R.string.debug_off), Toast.LENGTH_SHORT).show()
             return
         }
 
@@ -886,10 +898,10 @@ class MainActivity : AppCompatActivity() {
                         val claves = BuscadorWeb.palabrasClave(texto)
                         // Pregunta corta o orden de buscar ("búscala por internet"): se suma el tema
                         // anterior. Si así no hay resultados, se reintenta solo con la pregunta nueva.
-                        val esOrden = Regex("b[uú]sca(la|lo|me)?\\b|internet|mira en|consulta", RegexOption.IGNORE_CASE).containsMatchIn(texto) && texto.length < 60
+                        val esOrden = Regex("b[uú]sca(la|lo|me)?\\b|internet|mira en|consulta|search|look up|google", RegexOption.IGNORE_CASE).containsMatchIn(texto) && texto.length < 60
                         val pocasClaves = claves.split(" ").count { it.lowercase() != "resultado" && it.lowercase() != "goles" } <= 3
                         val esSeguimiento = ultimaConsultaUsada != null && (esOrden || (texto.length < 60 && pocasClaves))
-                        val reciente = Regex("ayer|hoy|anoche|esta semana|últim|reciente|ahora mismo|actual", RegexOption.IGNORE_CASE).containsMatchIn(texto) ||
+                        val reciente = Regex("ayer|hoy|anoche|esta semana|últim|reciente|ahora mismo|actual|yesterday|today|tonight|this week|latest|recent|right now|current", RegexOption.IGNORE_CASE).containsMatchIn(texto) ||
                             (esSeguimiento && ultimaReciente)
                         val consulta = when {
                             esOrden -> ultimaConsultaUsada!!
@@ -916,15 +928,15 @@ class MainActivity : AppCompatActivity() {
                             Log.d("SimulTrans", "Búsqueda «$usada» [v$versionApp · ${busqueda.diag}]\n${busqueda.fuentes}")
                         } else {
                             Log.d("SimulTrans", "Búsqueda «$usada» sin resultados: ${BuscadorWeb.ultimoError}")
-                            avisoSinRed = "\n\n(No he encontrado nada en Internet sobre esto; respondo con lo que sé, que puede estar desactualizado.)"
+                            avisoSinRed = "\n\n" + getString(R.string.web_none)
                         }
                     } catch (e: Exception) {
                         Log.d("SimulTrans", "Búsqueda fallida: ${e.javaClass.simpleName} ${e.message}")
-                        avisoSinRed = "\n\n(No he podido consultar Internet; respondo con lo que sé.)"
+                        avisoSinRed = "\n\n" + getString(R.string.web_failed)
                     }
                     statusText.text = estadoPrevio
                 }
-                val preguntaPorGol = Regex("marc[oó]|met[ií]o|anot[oó]|\\bgol|goleador", RegexOption.IGNORE_CASE).containsMatchIn(texto)
+                val preguntaPorGol = Regex("marc[oó]|met[ií]o|anot[oó]|\\bgol|goleador|scored|\\bgoals?\\b", RegexOption.IGNORE_CASE).containsMatchIn(texto)
                 var (respuesta, reiniciada) = if (huboBusqueda && preguntaPorGol && goleadorExtraido != null) {
                     // Respuesta directa con el nombre extraído de las noticias: el modelo pequeño lo inventa.
                     "El gol lo marcó $goleadorExtraido, según las noticias encontradas." to true
@@ -947,8 +959,7 @@ class MainActivity : AppCompatActivity() {
                         dudosos = datosNoRespaldados(respuesta, "$textoFuentes $texto")
                         val hayNumero = dudosos.any { d -> d.all { it.isDigit() } }
                         if (dudosos.isNotEmpty() && (hayNumero || dudosos.size >= 2)) {
-                            respuesta = "No estoy seguro de la respuesta: los textos que he encontrado no la confirman con claridad. " +
-                                "Esto es lo que dicen los titulares:\n" + titularesFuentes.lines().take(4).joinToString("\n")
+                            respuesta = getString(R.string.not_sure) + titularesFuentes.lines().take(4).joinToString("\n")
                         }
                     }
                 }
@@ -959,7 +970,7 @@ class MainActivity : AppCompatActivity() {
                     speak(respuesta, assistantVoiceLang)
                 }
             } catch (e: Exception) {
-                addAssistantBubble("(Error: ${e.message})", alignLeft = true, colorHex = "#4A90D9")
+                addAssistantBubble(getString(R.string.err_generic, "${e.message}"), alignLeft = true, colorHex = "#4A90D9")
             } finally {
                 isBusy = false
                 progressBar.visibility = View.GONE
@@ -1087,7 +1098,7 @@ class MainActivity : AppCompatActivity() {
         prefs.edit().remove(KEY_ASSISTANT_HISTORY).apply()
         pendingAssistantContext = null
         lifecycleScope.launch { translationEngine.resetAssistantConversation() }
-        Toast.makeText(this, "Conversación borrada", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, R.string.conv_deleted, Toast.LENGTH_SHORT).show()
     }
 
     /**
@@ -1102,8 +1113,8 @@ class MainActivity : AppCompatActivity() {
         spinnerLangA.adapter = adapter
         spinnerLangB.adapter = adapter
 
-        spinnerLangA.setSelection(Idioma.ESPANOL.ordinal)
-        spinnerLangB.setSelection(Idioma.INGLES.ordinal)
+        spinnerLangA.setSelection(langA.ordinal)
+        spinnerLangB.setSelection(langB.ordinal)
 
         spinnerLangA.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
@@ -1124,14 +1135,14 @@ class MainActivity : AppCompatActivity() {
 
     /** Actualiza el texto y color de los botones según langA/langB. */
     private fun updateLanguageButtons() {
-        btnLangA.text = "Hablar en ${langA.etiqueta}"
-        btnLangB.text = "Hablar en ${langB.etiqueta}"
+        btnLangA.text = getString(R.string.speak_in, langA.etiqueta)
+        btnLangB.text = getString(R.string.speak_in, langB.etiqueta)
         btnLangA.backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor(langA.colorHex))
         btnLangB.backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor(langB.colorHex))
 
         val mismoIdioma = langA == langB
         if (mismoIdioma) {
-            statusText.text = "Elige dos idiomas distintos para conversar."
+            statusText.text = getString(R.string.pick_two_langs)
         } else if (modelReady) {
             statusText.text = getString(R.string.status_ready)
         }
@@ -1154,11 +1165,11 @@ class MainActivity : AppCompatActivity() {
                         modelFile.outputStream().use { output ->
                             input.copyTo(output, bufferSize = 8 * 1024 * 1024)
                         }
-                    } ?: throw IllegalStateException("No se pudo abrir el archivo elegido")
+                    } ?: throw IllegalStateException(getString(R.string.err_open_file))
                 }
                 loadModel(translationEngine)
             } catch (e: Exception) {
-                statusText.text = "Error al copiar el modelo: ${e.message}"
+                statusText.text = getString(R.string.err_copy_model, "${e.message}")
                 btnPickModel.isEnabled = true
             }
         }
@@ -1174,17 +1185,17 @@ class MainActivity : AppCompatActivity() {
         val libre = filesDir.usableSpace
         if (libre < ModelDownloader.ESPACIO_NECESARIO) {
             AlertDialog.Builder(this)
-                .setTitle("Espacio insuficiente")
-                .setMessage("Hace falta al menos 3,5 GB libres y ahora hay ${"%.1f".format(libre / 1e9)} GB. Libera espacio y vuelve a intentarlo.")
-                .setPositiveButton("Entendido", null)
+                .setTitle(R.string.space_title)
+                .setMessage(getString(R.string.space_msg, "%.1f".format(libre / 1e9)))
+                .setPositiveButton(R.string.btn_ok, null)
                 .show()
             return
         }
         AlertDialog.Builder(this)
-            .setTitle(if (reanudando) "Continuar la descarga" else "Descargar el modelo")
-            .setMessage("Se descargarán 2,6 GB. Mejor con Wi-Fi. Mantén la app abierta hasta que termine; al acabar se activa sola.")
-            .setPositiveButton("Descargar") { _, _ -> empezarDescarga() }
-            .setNegativeButton("Cancelar", null)
+            .setTitle(if (reanudando) R.string.dl_title_resume else R.string.dl_title)
+            .setMessage(R.string.dl_msg)
+            .setPositiveButton(R.string.btn_download) { _, _ -> empezarDescarga() }
+            .setNegativeButton(R.string.btn_cancel, null)
             .show()
     }
 
@@ -1194,7 +1205,7 @@ class MainActivity : AppCompatActivity() {
         progressDownload.progress = 0
         progressDownload.visibility = View.VISIBLE
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        statusText.text = "Descargando el modelo…"
+        statusText.text = getString(R.string.dl_downloading)
 
         descargaJob = lifecycleScope.launch {
             try {
@@ -1202,10 +1213,12 @@ class MainActivity : AppCompatActivity() {
                     runOnUiThread {
                         if (total > 0) {
                             progressDownload.progress = (hecho * 1000 / total).toInt()
-                            statusText.text = "Descargando el modelo… ${hecho * 100 / total} % " +
-                                "(${"%.1f".format(hecho / 1e9)} de ${"%.1f".format(total / 1e9)} GB)"
+                            statusText.text = getString(
+                                R.string.dl_progress, (hecho * 100 / total).toInt(),
+                                "%.1f".format(hecho / 1e9), "%.1f".format(total / 1e9)
+                            )
                         } else {
-                            statusText.text = "Descargando el modelo… ${"%.1f".format(hecho / 1e9)} GB"
+                            statusText.text = getString(R.string.dl_progress_unknown, "%.1f".format(hecho / 1e9))
                         }
                     }
                 }
@@ -1213,11 +1226,11 @@ class MainActivity : AppCompatActivity() {
                 loadModel(translationEngine)
             } catch (e: CancellationException) {
                 finalizarDescarga()
-                statusText.text = "Descarga pausada. Pulsa de nuevo para continuar donde se quedó."
+                statusText.text = getString(R.string.dl_paused)
                 throw e
             } catch (e: Exception) {
                 finalizarDescarga()
-                statusText.text = "No se pudo completar la descarga: ${e.message}\nPulsa de nuevo para continuar donde se quedó."
+                statusText.text = getString(R.string.dl_failed, "${e.message}")
             }
         }
     }
@@ -1255,7 +1268,7 @@ class MainActivity : AppCompatActivity() {
                 updateLanguageButtons()
                 btnSendPrompt.isEnabled = true
             } catch (e: Exception) {
-                statusText.text = "Error al cargar el modelo: ${e.message}"
+                statusText.text = getString(R.string.err_load_model, "${e.message}")
                 btnPickModel.visibility = View.VISIBLE
                 btnPickModel.isEnabled = true
                 btnDownloadModel.visibility = View.VISIBLE
@@ -1278,7 +1291,7 @@ class MainActivity : AppCompatActivity() {
                 addBubble(translated, toIdioma)
                 speak(translated, toIdioma)
             } catch (e: Exception) {
-                addBubble("(Error al traducir: ${e.message})", toIdioma)
+                addBubble(getString(R.string.err_translate, "${e.message}"), toIdioma)
             } finally {
                 isBusy = false
                 progressBar.visibility = View.GONE
@@ -1318,12 +1331,12 @@ class MainActivity : AppCompatActivity() {
             result == TextToSpeech.LANG_NOT_SUPPORTED
 
         if (faltaPaquete) {
-            statusText.text = "Falta la voz de ${idioma.displayName} en este móvil. Abriendo instalación..."
+            statusText.text = getString(R.string.tts_missing, idioma.nombre)
             try {
                 val installIntent = android.content.Intent(TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA)
                 startActivity(installIntent)
             } catch (e: Exception) {
-                statusText.text = "Instala la voz de ${idioma.displayName} desde Ajustes > Accesibilidad > Conversión de texto a voz."
+                statusText.text = getString(R.string.tts_install, idioma.nombre)
             }
             return
         }
@@ -1363,7 +1376,7 @@ class MainActivity : AppCompatActivity() {
             setOnClickListener {
                 val clipboard = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
                 clipboard.setPrimaryClip(ClipData.newPlainText("Texto", text))
-                Toast.makeText(this@MainActivity, "Copiado", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@MainActivity, R.string.copied, Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -1411,7 +1424,7 @@ class MainActivity : AppCompatActivity() {
     private fun clearHistory() {
         transcriptContainer.removeAllViews()
         prefs.edit().remove(KEY_HISTORY).apply()
-        Toast.makeText(this, "Conversación borrada", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, R.string.conv_deleted, Toast.LENGTH_SHORT).show()
     }
 
     override fun onDestroy() {
