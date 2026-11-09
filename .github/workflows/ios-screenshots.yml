@@ -30,29 +30,36 @@ jobs:
             -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath build ARCHS=arm64 ONLY_ACTIVE_ARCH=YES build
 
-      - name: Hacer capturas en dos tamaños (6,9" y 6,3")
+      - name: Hacer capturas (inglés y español, dos tamaños)
         run: |
           B=es.maropal.simultrans
-          capturar() {  # $1 = patrón del dispositivo, $2 = carpeta de salida
+          capturar() {  # $1 = patrón del dispositivo, $2 = carpeta, $3 = idioma (en|es)
+            if [ "$3" = "en" ]; then
+              IDIOMA="-AppleLanguages (en) -AppleLocale en_US"; DEMO="-demo-en"
+            else
+              IDIOMA="-AppleLanguages (es) -AppleLocale es_ES"; DEMO=""
+            fi
             UDID=$(xcrun simctl list devices available | grep -E "$1" | tail -1 | grep -oE '[0-9A-F]{8}-([0-9A-F]{4}-){3}[0-9A-F]{12}')
-            echo "Simulador ($2): $UDID"
+            echo "Simulador ($3/$2): $UDID"
             xcrun simctl boot $UDID || true
             xcrun simctl bootstatus $UDID -b
             xcrun simctl status_bar $UDID override --time 9:41 --batteryState charged --batteryLevel 100 --cellularBars 4 --wifiBars 3
             xcrun simctl install $UDID build/Build/Products/Debug-iphonesimulator/SimulTransIOS.app
-            mkdir -p ../capturas/$2
-            xcrun simctl launch $UDID $B
-            sleep 6; xcrun simctl io $UDID screenshot ../capturas/$2/3_descarga_modelo.png
+            mkdir -p ../capturas/$3/$2
+            xcrun simctl launch $UDID $B $IDIOMA
+            sleep 6; xcrun simctl io $UDID screenshot ../capturas/$3/$2/3_descarga_modelo.png
             xcrun simctl terminate $UDID $B
-            xcrun simctl launch $UDID $B -screenshots -tab 0
-            sleep 6; xcrun simctl io $UDID screenshot ../capturas/$2/1_traductor.png
+            xcrun simctl launch $UDID $B -screenshots $DEMO -tab 0 $IDIOMA
+            sleep 6; xcrun simctl io $UDID screenshot ../capturas/$3/$2/1_traductor.png
             xcrun simctl terminate $UDID $B
-            xcrun simctl launch $UDID $B -screenshots -tab 1
-            sleep 6; xcrun simctl io $UDID screenshot ../capturas/$2/2_asistente.png
-            for f in ../capturas/$2/*.png; do echo "::notice::$2/$(basename $f) $(sips -g pixelWidth -g pixelHeight $f | tail -2 | awk '{print $2}' | tr '\n' 'x')"; done
+            xcrun simctl launch $UDID $B -screenshots $DEMO -tab 1 $IDIOMA
+            sleep 6; xcrun simctl io $UDID screenshot ../capturas/$3/$2/2_asistente.png
+            xcrun simctl terminate $UDID $B
           }
-          capturar "iPhone [0-9]+ Pro Max" "pantalla_6.9_1320x2868"
-          capturar "iPhone [0-9]+ Pro \(" "pantalla_6.3_1206x2622"
+          for L in en es; do
+            capturar "iPhone [0-9]+ Pro Max" "pantalla_6.9_1320x2868" $L
+            capturar "iPhone [0-9]+ Pro \\(" "pantalla_6.3_1206x2622" $L
+          done
 
       - uses: actions/upload-artifact@v4
         with:
