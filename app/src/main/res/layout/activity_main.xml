@@ -381,6 +381,18 @@
         </LinearLayout>
     </LinearLayout>
 
+    <!-- Uso diario restante / estado Pro: al tocarlo abre el panel de suscripción -->
+    <TextView
+        android:id="@+id/txtUso"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:padding="6dp"
+        android:textColor="@color/spanish_color"
+        android:textSize="12sp"
+        android:clickable="true"
+        android:focusable="true" />
+
     <!-- Banner de marca: visible debajo de las dos pestañas, abre maropal.es al tocarlo -->
     <LinearLayout
         android:id="@+id/footerBanner"

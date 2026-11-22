@@ -1,0 +1,67 @@
+<title>SimulTrans — Condiciones de uso</title>
+<style>
+  :root{
+    /* Paleta: azul/grafito a juego con el logo de Maropal, sobre fondo cálido neutro */
+    --bg:#F7F8FA; --surface:#FFFFFF; --fg:#1C2430; --muted:#5B6678;
+    --accent:#1E4FA3; --accent-soft:#E7EEFB; --border:#E1E5EC;
+    --radius:14px;
+    --font-display:"Fraunces", Georgia, serif;
+    --font-body:"Inter", -apple-system, Segoe UI, sans-serif;
+    /* Layout: columna centrada única, lectura tipo documento legal */
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#14181F; --surface:#1B212B; --fg:#ECEFF4; --muted:#9AA4B5;
+      --accent:#7FA6EC; --accent-soft:#1E2A42; --border:#2A3240;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#14181F; --surface:#1B212B; --fg:#ECEFF4; --muted:#9AA4B5;
+    --accent:#7FA6EC; --accent-soft:#1E2A42; --border:#2A3240;
+    color-scheme: dark;
+  }
+  *{box-sizing:border-box}
+  body{background:var(--bg); color:var(--fg); font-family:var(--font-body); margin:0; padding-inline:16px; line-height:1.6;}
+  .wrap{max-width:720px; margin:0 auto; padding-block:48px 80px;}
+  .brand{display:flex; align-items:center; gap:10px; margin-bottom:28px;}
+  .brand .dot{width:10px; height:10px; border-radius:50%; background:var(--accent);}
+  .brand span{font-family:var(--font-body); font-weight:600; letter-spacing:.04em; text-transform:uppercase; font-size:12px; color:var(--muted);}
+  h1{font-family:var(--font-display); font-weight:600; font-size:clamp(28px,5vw,38px); line-height:1.15; margin:0 0 6px; text-wrap:balance;}
+  .updated{color:var(--muted); font-size:14px; margin-bottom:40px;}
+  h2{font-family:var(--font-display); font-weight:600; font-size:20px; margin:40px 0 12px; text-wrap:balance;}
+  p{margin:0 0 14px; color:var(--fg);}
+  p.lead{font-size:17px; color:var(--muted);}
+  ul{margin:0 0 14px; padding-left:20px;}
+  li{margin-bottom:8px;}
+  .card{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:20px 22px; margin:18px 0;}
+  .card.good::before{content:"No recoge"; display:inline-block; font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--accent); background:var(--accent-soft); padding:3px 9px; border-radius:999px; margin-bottom:10px;}
+  .contact{background:var(--accent-soft); border-radius:var(--radius); padding:20px 22px; margin-top:32px;}
+  .contact strong{color:var(--accent);}
+  a{color:var(--accent);}
+  footer{margin-top:56px; padding-top:20px; border-top:1px solid var(--border); color:var(--muted); font-size:13px;}
+  @font-face{font-family:"Fraunces"; src:local("Georgia");}
+</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600&family=Inter:wght@400;500;600&display=swap">
+
+<div class="wrap">
+  <div class="brand"><span class="dot"></span><span>Gestión y Software Maropal, S.L.</span></div>
+  <h1>Condiciones de uso de SimulTrans</h1>
+  <p class="updated">Última actualización: 22 de noviembre de 2026</p>
+
+  <p class="lead">Estas condiciones regulan el uso de SimulTrans y de su suscripción opcional «SimulTrans Pro».</p>
+
+  <h2>Versión gratuita y Pro</h2>
+  <p>SimulTrans es gratuita con límites diarios: 15 minutos de traducción por voz y 15 preguntas al asistente al día. Los contadores se reinician cada día. SimulTrans Pro elimina esos límites mientras la suscripción esté activa.</p>
+
+  <h2>Suscripción</h2>
+  <p>Las suscripciones mensual y anual se renuevan automáticamente al final de cada periodo salvo que las canceles al menos 24 horas antes de su finalización. El cobro se carga a tu cuenta de Google Play o de Apple. Puedes gestionar o cancelar la suscripción en los ajustes de tu cuenta de la tienda correspondiente (Google Play → Pagos y suscripciones; iPhone → Ajustes → tu nombre → Suscripciones). Si se ofrece un periodo de prueba gratuito, al terminar se cobra el precio indicado salvo que canceles antes. Los reembolsos los gestiona la tienda según su política.</p>
+
+  <h2>Uso de la app</h2>
+  <p>La app se ofrece «tal cual». Las traducciones y respuestas las genera un modelo de inteligencia artificial en tu dispositivo y pueden contener errores; no las uses como único criterio en decisiones médicas, legales o de seguridad.</p>
+
+  <h2>Contacto</h2>
+  <p>Gestión y Software Maropal, S.L. — <a href="mailto:maropalmonte@gmail.com">maropalmonte@gmail.com</a>. Más información en la <a href="privacidad.html">política de privacidad</a>. Las condiciones estándar de Apple para aplicaciones están disponibles en <a href="https://www.apple.com/legal/internet-services/itunes/dev/stdeula/">apple.com</a>.</p>
+
+  <footer>Gestión y Software Maropal, S.L. · <a href="https://maropal.es">maropal.es</a></footer>
+</div>

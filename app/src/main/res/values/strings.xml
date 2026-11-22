@@ -68,4 +68,21 @@
     <string name="btn_send">Send</string>
     <string name="chk_speak">🔊 Read aloud</string>
     <string name="btn_licenses">Licenses</string>
+    <string name="uso_pro">⭐ SimulTrans Pro active</string>
+    <string name="uso_gratis">Today: %1$d min of translation · %2$d questions left · Tap for Pro</string>
+    <string name="pw_titulo">SimulTrans Pro</string>
+    <string name="pw_limite_traduccion">You have used your free translation time for today (%1$d min/day). It resets tomorrow.</string>
+    <string name="pw_limite_preguntas">You have used your free questions for today (%1$d/day). They reset tomorrow.</string>
+    <string name="pw_info">Free: %1$d min of voice translation and %2$d assistant questions per day.\nPro: no daily limits.</string>
+    <string name="pw_mensual">Monthly · %1$s</string>
+    <string name="pw_anual">Yearly · %1$s</string>
+    <string name="pw_restaurar">Restore purchases</string>
+    <string name="pw_cerrar">Not now</string>
+    <string name="pw_legal">The subscription renews automatically until you cancel it in your Google Play account (Play Store → Payments &amp; subscriptions). Payment is charged to your Google Play account.</string>
+    <string name="pw_privacidad">Privacy policy</string>
+    <string name="pw_terminos">Terms of use</string>
+    <string name="pw_no_disponible">Subscriptions are not available right now. Try again later.</string>
+    <string name="pw_gracias">Thank you! Pro is now active.</string>
+    <string name="pw_restaurado">Purchases checked.</string>
+    <string name="pw_fin_traduccion">Daily free translation time reached.</string>
 </resources>

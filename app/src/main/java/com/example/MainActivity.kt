@@ -168,6 +168,11 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tts: TextToSpeech
     private lateinit var modelFile: File
     private lateinit var prefs: SharedPreferences
+    private lateinit var uso: UsoDiario
+    private lateinit var suscripcion: Suscripcion
+    private lateinit var txtUso: TextView
+    private var inicioTraduccionMs = 0L
+    private var vigilanteLimite: Job? = null
 
     // Pareja de idiomas activa en la conversación del Traductor.
     private var langA: Idioma = Idioma.delDispositivo()
@@ -231,6 +236,13 @@ class MainActivity : AppCompatActivity() {
         mostrarUltimoCrashSiExiste()
 
         setContentView(R.layout.activity_main)
+
+        uso = UsoDiario(this)
+        suscripcion = Suscripcion(this) { runOnUiThread { actualizarUso() } }
+        txtUso = findViewById(R.id.txtUso)
+        txtUso.setOnClickListener { mostrarPaywall(null) }
+        suscripcion.conectar()
+        actualizarUso()
 
         // Con targetSdk 35+ Android 15 dibuja la app de borde a borde: sin
         // esto la barra de estado tapa el texto de arriba y la barra de
@@ -602,9 +614,100 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    // ==================== LÍMITES DIARIOS Y SUSCRIPCIÓN PRO ====================
+
+    private fun actualizarUso() {
+        if (suscripcion.esPro) {
+            txtUso.text = getString(R.string.uso_pro)
+        } else {
+            val min = ((uso.msTraduccionRestantes() + 59_999L) / 60_000L).toInt()
+            txtUso.text = getString(R.string.uso_gratis, min, uso.preguntasRestantes())
+        }
+    }
+
+    private fun mostrarPaywall(motivo: String?) {
+        val dp = resources.displayMetrics.density
+        fun px(v: Int) = (v * dp).toInt()
+        val caja = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(px(20), px(12), px(20), px(4))
+        }
+        fun texto(t: String, tam: Float = 14f): TextView = TextView(this).apply {
+            text = t; textSize = tam; setPadding(0, px(4), 0, px(8))
+        }
+        fun boton(t: String, accion: () -> Unit): Button = Button(this).apply {
+            text = t; isAllCaps = false; setOnClickListener { accion() }
+        }
+        fun enlace(t: String, url: String): TextView = TextView(this).apply {
+            text = t; textSize = 13f; setPadding(0, px(8), px(16), px(8))
+            setTextColor(Color.parseColor("#1E4FA3"))
+            setOnClickListener { startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, Uri.parse(url))) }
+        }
+        if (suscripcion.esPro) {
+            caja.addView(texto(getString(R.string.uso_pro), 16f))
+        } else {
+            if (motivo != null) caja.addView(texto(motivo, 15f))
+            caja.addView(texto(getString(R.string.pw_info, Limites.MINUTOS_TRADUCCION, Limites.PREGUNTAS)))
+        }
+        lateinit var dialogo: AlertDialog
+        if (!suscripcion.esPro) {
+            val planes = suscripcion.planes
+            val anual = planes.firstOrNull { it.basePlanId.contains("anual") }
+            val mensual = planes.firstOrNull { it.basePlanId.contains("mensual") }
+            if (anual != null) caja.addView(boton(getString(R.string.pw_anual, suscripcion.precio(anual))) {
+                dialogo.dismiss(); suscripcion.comprar(this, anual)
+            })
+            if (mensual != null) caja.addView(boton(getString(R.string.pw_mensual, suscripcion.precio(mensual))) {
+                dialogo.dismiss(); suscripcion.comprar(this, mensual)
+            })
+            if (planes.isEmpty()) {
+                caja.addView(texto(getString(R.string.pw_no_disponible)))
+                suscripcion.conectar()
+            }
+            caja.addView(texto(getString(R.string.pw_legal), 11f))
+        }
+        caja.addView(boton(getString(R.string.pw_restaurar)) {
+            suscripcion.consultar()
+            Toast.makeText(this, R.string.pw_restaurado, Toast.LENGTH_SHORT).show()
+        })
+        val fila = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        fila.addView(enlace(getString(R.string.pw_privacidad), "https://empresa.maropal.es/privacidad.html"))
+        fila.addView(enlace(getString(R.string.pw_terminos), "https://empresa.maropal.es/terminos.html"))
+        caja.addView(fila)
+        dialogo = AlertDialog.Builder(this)
+            .setTitle(R.string.pw_titulo)
+            .setView(ScrollView(this).apply { addView(caja) })
+            .setNegativeButton(R.string.pw_cerrar, null)
+            .create()
+        dialogo.show()
+    }
+
+    /** Tiempo de traducción: suma lo usado y vigila el límite diario mientras se graba. */
+    private fun vigilarLimiteTraduccion() {
+        if (suscripcion.esPro) return
+        vigilanteLimite?.cancel()
+        vigilanteLimite = lifecycleScope.launch {
+            while (grabandoTraductor) {
+                val gastado = System.currentTimeMillis() - inicioTraduccionMs
+                if (gastado >= uso.msTraduccionRestantes()) {
+                    Toast.makeText(this@MainActivity, R.string.pw_fin_traduccion, Toast.LENGTH_LONG).show()
+                    detenerGrabacionTraductor()
+                    break
+                }
+                kotlinx.coroutines.delay(500)
+            }
+        }
+    }
+
     private fun iniciarGrabacionTraductor(idioma: Idioma) {
+        if (!suscripcion.esPro && uso.msTraduccionRestantes() <= 0L) {
+            mostrarPaywall(getString(R.string.pw_limite_traduccion, Limites.MINUTOS_TRADUCCION))
+            return
+        }
         if (!iniciarGrabacion()) return
         grabandoTraductor = true
+        inicioTraduccionMs = System.currentTimeMillis()
+        vigilarLimiteTraduccion()
         idiomaGrabandoTraductor = idioma
         val boton = if (idioma == langA) btnLangA else btnLangB
         boton.text = getString(R.string.btn_tap_stop)
@@ -616,6 +719,11 @@ class MainActivity : AppCompatActivity() {
         val idioma = idiomaGrabandoTraductor ?: return
         ocultarIndicadorEscucha()
         grabandoTraductor = false
+        vigilanteLimite?.cancel()
+        if (!suscripcion.esPro) {
+            uso.sumarTraduccion(System.currentTimeMillis() - inicioTraduccionMs)
+            actualizarUso()
+        }
         idiomaGrabandoTraductor = null
         updateLanguageButtons()
 
@@ -839,6 +947,15 @@ class MainActivity : AppCompatActivity() {
             promptInput.setText("")
             Toast.makeText(this, getString(if (activo) R.string.debug_on else R.string.debug_off), Toast.LENGTH_SHORT).show()
             return
+        }
+
+        if (!suscripcion.esPro) {
+            if (uso.preguntasRestantes() <= 0) {
+                mostrarPaywall(getString(R.string.pw_limite_preguntas, Limites.PREGUNTAS))
+                return
+            }
+            uso.sumarPregunta()
+            actualizarUso()
         }
 
         val etiquetaUsuario = if (pendingAttachmentLabel != null) {
@@ -1427,12 +1544,18 @@ class MainActivity : AppCompatActivity() {
         Toast.makeText(this, R.string.conv_deleted, Toast.LENGTH_SHORT).show()
     }
 
+    override fun onResume() {
+        super.onResume()
+        if (::suscripcion.isInitialized) { suscripcion.conectar(); actualizarUso() }
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         ocultarIndicadorEscucha()
         grabacionActiva = false
         audioRecord?.release()
         tts.shutdown()
+        suscripcion.cerrar()
         translationEngine.close()
     }
 

@@ -81,4 +81,6 @@ dependencies {
     implementation("androidx.activity:activity-ktx:1.9.1")
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
+    // Suscripción Pro (Google Play exige Billing Library 8 o superior)
+    implementation("com.android.billingclient:billing-ktx:8.2.1")
 }
