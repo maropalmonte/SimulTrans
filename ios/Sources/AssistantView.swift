@@ -172,6 +172,15 @@ struct AssistantView: View {
             return
         }
 
+        if !Tienda.shared.esPro {
+            if UsoDiario.preguntasRestantes() <= 0 {
+                Tienda.shared.mostrar(L("Has usado las preguntas gratuitas de hoy (%ld/día). Se renuevan mañana.", Limites.preguntas))
+                return
+            }
+            UsoDiario.sumarPregunta()
+            Tienda.shared.uso += 1
+        }
+
         let visible = pregunta.isEmpty ? L("(adjunto)") : pregunta
         let adjuntoEtiqueta = nombreAdjunto.map { "\n📎 \($0)" } ?? ""
         agregar("\(visible)\(adjuntoEtiqueta)", asistente: false)

@@ -12,6 +12,7 @@ struct ContentView: View {
     @State private var tab = DemoData.pestanaInicial
     @State private var informeCierre: String? = Diagnostico.informePrevio
     @Environment(\.scenePhase) private var scenePhase
+    @ObservedObject private var tienda = Tienda.shared
 
     init() {
         // En modo capturas se salta la carga del modelo (ver DemoData).
@@ -33,6 +34,17 @@ struct ContentView: View {
                             .tabItem { Label("Asistente IA", systemImage: "sparkles") }
                             .tag(1)
                     }
+                    Button {
+                        tienda.mostrar("")
+                    } label: {
+                        Text(tienda.esPro
+                             ? L("⭐ SimulTrans Pro activo")
+                             : L("Hoy: %ld min de traducción · %ld preguntas · Toca para Pro",
+                                 Int((UsoDiario.segundosRestantes() / 60).rounded(.up)), UsoDiario.preguntasRestantes()))
+                            .font(.caption)
+                            .padding(.vertical, 4)
+                    }
+                    .id(tienda.uso)
                     HStack {
                         Link(destination: URL(string: "https://maropal.es")!) {
                             Text("Gestión y Software Maropal · maropal.es")
@@ -47,6 +59,12 @@ struct ContentView: View {
             } else {
                 pantallaModelo
             }
+        }
+        .sheet(isPresented: Binding(
+            get: { tienda.motivoPaywall != nil },
+            set: { if !$0 { tienda.motivoPaywall = nil } }
+        )) {
+            PaywallView(motivo: tienda.motivoPaywall ?? "")
         }
         .alert("Licencias y créditos", isPresented: $mostrarLicencias) {
             Button("Cerrar", role: .cancel) {}

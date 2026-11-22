@@ -16,6 +16,9 @@ struct TranslatorView: View {
     @State private var idiomaGrabando: Idioma?
     @State private var isBusy = false
     @State private var statusMessage = L("Listo.")
+    @State private var inicioGrabacion = Date()
+    @State private var vigilante: Task<Void, Never>?
+    @ObservedObject private var tienda = Tienda.shared
 
     private let grabador = AudioRecorderService()
     private let synthesizer = AVSpeechSynthesizer()
@@ -150,6 +153,10 @@ struct TranslatorView: View {
     }
 
     private func solicitarPermisoYGrabar(_ idioma: Idioma) {
+        if !tienda.esPro && UsoDiario.segundosRestantes() <= 0 {
+            tienda.mostrar(L("Has usado el tiempo de traducción gratuito de hoy (%ld min/día). Se renueva mañana.", Limites.minutosTraduccion))
+            return
+        }
         // Versión async: el sistema responde desde un hilo secundario y, con
         // la versión de closure, la app se cerraba al pulsar "Permitir".
         Task { @MainActor in
@@ -170,6 +177,20 @@ struct TranslatorView: View {
             try grabador.startRecording(to: urlGrabacionTemporal())
             grabando = true
             idiomaGrabando = idioma
+            inicioGrabacion = Date()
+            vigilante?.cancel()
+            if !tienda.esPro {
+                vigilante = Task { @MainActor in
+                    while grabando && !Task.isCancelled {
+                        if Date().timeIntervalSince(inicioGrabacion) >= UsoDiario.segundosRestantes() {
+                            tienda.mostrar(L("Has alcanzado el tiempo gratuito de traducción de hoy."))
+                            detenerYTraducir()
+                            break
+                        }
+                        try? await Task.sleep(nanoseconds: 500_000_000)
+                    }
+                }
+            }
             statusMessage = L("Grabando... toca de nuevo para traducir")
         } catch {
             statusMessage = L("No se pudo iniciar la grabación: %@", error.localizedDescription)
@@ -182,6 +203,11 @@ struct TranslatorView: View {
         grabador.stopRecording()
         grabando = false
         idiomaGrabando = nil
+        vigilante?.cancel()
+        if !tienda.esPro {
+            UsoDiario.sumarTraduccion(segundos: Date().timeIntervalSince(inicioGrabacion))
+            tienda.uso += 1
+        }
         isBusy = true
         statusMessage = L("Traduciendo...")
 
