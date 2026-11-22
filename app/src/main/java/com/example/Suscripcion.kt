@@ -1,4 +1,4 @@
-package com.example
+package com.example.simultrans
 
 import android.app.Activity
 import android.content.Context
